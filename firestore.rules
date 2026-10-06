@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signedIn() { return request.auth != null; }
+  function admin() { return signedIn() && request.auth.token.get('admin',false) == true; }
+  function owner(uid) { return signedIn() && request.auth.uid == uid; }
+  function text(v,n) { return v is string && v.size() <= n; }
+  function config() { return get(/databases/$(database)/documents/settings/store).data; }
+  function customer(c) {
+   return c.keys().hasOnly(['name','email','phone','whatsapp','address','apartment','area','city','province','postalCode','instructions'])
+    && text(c.name,100) && c.name.size()>0 && c.email == request.auth.token.email
+    && c.phone.matches('^(\\+92|0092|0)?3[0-9]{9}$') && text(c.whatsapp,20)
+    && text(c.address,300) && c.address.size()>0 && text(c.apartment,100) && text(c.area,100) && c.area.size()>0
+    && text(c.city,100) && c.city.size()>0 && c.province in ['Punjab','Sindh','Khyber Pakhtunkhwa','Balochistan','Islamabad Capital Territory','Azad Jammu and Kashmir','Gilgit-Baltistan']
+    && text(c.postalCode,10) && text(c.instructions,600);
+  }
+  function line(l) {
+   let s = get(/databases/$(database)/documents/skus/$(l.sku)).data;
+   return l.keys().hasOnly(['sku','productId','variantId','name','variantName','image','unitPrice','quantity','lineTotal'])
+    && s.active == true && l.quantity is int && l.quantity>=1 && l.quantity<=10 && l.quantity<=s.stock
+    && l.unitPrice==s.price && l.lineTotal==s.price*l.quantity && l.productId==s.productId && l.variantId==s.variantId
+    && l.name==s.name && l.variantName==s.variantName && l.image==s.image;
+  }
+  function lineAt(a,i) { return a.size()<=i || line(a[i]); }
+  function amount(a,i) { return a.size()>i ? a[i].lineTotal : 0; }
+  function distinct(a) {
+   return (a.size()<2 || a[0].sku!=a[1].sku)
+    && (a.size()<3 || (a[0].sku!=a[2].sku && a[1].sku!=a[2].sku))
+    && (a.size()<4 || (a[0].sku!=a[3].sku && a[1].sku!=a[3].sku && a[2].sku!=a[3].sku))
+    && (a.size()<5 || (a[0].sku!=a[4].sku && a[1].sku!=a[4].sku && a[2].sku!=a[4].sku && a[3].sku!=a[4].sku));
+  }
+  function payment(o,id) {
+   return (o.paymentMethod=='cod' && o.paymentStatus=='cod_pending' && o.orderStatus=='pending')
+    || (o.paymentMethod=='manual_online_payment' && config().bank.enabled==true && o.paymentStatus=='awaiting_verification' && o.orderStatus=='payment_verification');
+  }
+  function order(o,id) {
+   let shipping = o.subtotal>=config().shipping.freeAbove ? 0 : config().shipping.fee;
+   return o.keys().hasOnly(['orderNumber','userId','customer','items','subtotal','shipping','total','paymentMethod','paymentStatus','orderStatus','createdAt','updatedAt','inventoryReserved','verifiedAt','verifiedBy','rejectionReason','trackingNumber','history'])
+    && id.matches('^GS-[0-9A-Z]{4,16}$') && o.orderNumber==id && o.userId==request.auth.uid && customer(o.customer)
+    && o.items is list && o.items.size()>=1 && o.items.size()<=5 && distinct(o.items)
+    && lineAt(o.items,0) && lineAt(o.items,1) && lineAt(o.items,2) && lineAt(o.items,3) && lineAt(o.items,4)
+    && o.subtotal==amount(o.items,0)+amount(o.items,1)+amount(o.items,2)+amount(o.items,3)+amount(o.items,4)
+    && o.shipping==shipping && o.total==o.subtotal+shipping && payment(o,id)
+    && o.createdAt==request.time && o.updatedAt==request.time && o.inventoryReserved==false
+    && o.verifiedAt==null && o.verifiedBy=='' && o.rejectionReason=='' && o.trackingNumber=='' && o.history is list
+    && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/limits/checkout).data.orderId==id
+    && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/limits/checkout).data.lastOrderAt==request.time;
+  }
+  match /users/{uid} {
+   allow read: if owner(uid) || admin();
+   allow create: if owner(uid) && request.resource.data.keys().hasOnly(['uid','displayName','email','phone','whatsapp','defaultShipping','createdAt','updatedAt']) && request.resource.data.uid==uid && request.resource.data.email==request.auth.token.email && text(request.resource.data.displayName,100) && text(request.resource.data.phone,20) && request.resource.data.createdAt==request.time && request.resource.data.updatedAt==request.time;
+   allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','phone','whatsapp','defaultShipping','updatedAt']) && text(request.resource.data.displayName,100) && text(request.resource.data.phone,20) && request.resource.data.updatedAt==request.time;
+   match /addresses/{id} {
+    allow read,delete: if owner(uid);
+    allow create,update: if owner(uid) && request.resource.data.keys().hasOnly(['label','customer','updatedAt']) && text(request.resource.data.label,60) && customer(request.resource.data.customer) && request.resource.data.updatedAt==request.time;
+   }
+   match /limits/{key} {
+    allow read: if owner(uid);
+    allow create,update: if owner(uid) && key=='checkout' && request.resource.data.keys().hasOnly(['lastOrderAt','orderId']) && request.resource.data.lastOrderAt==request.time
+     && (!exists(/databases/$(database)/documents/users/$(uid)/limits/checkout) || request.time>resource.data.lastOrderAt+duration.value(20,'s'))
+     && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId==uid
+     && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.createdAt==request.time;
+   }
+  }
+  match /products/{id} { allow read: if admin() || resource.data.active==true; allow write: if admin(); }
+  match /skus/{id} { allow read: if admin() || resource.data.active==true; allow write: if admin(); }
+  match /categories/{id} { allow read: if true; allow write: if admin(); }
+  match /settings/{id} { allow read: if id=='store'; allow write: if admin(); }
+  match /siteContent/{id} { allow read: if true; allow write: if admin(); }
+  match /orders/{id} {
+   allow read: if admin() || owner(resource.data.userId);
+   allow create: if signedIn() && order(request.resource.data,id);
+   allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','paymentStatus','inventoryReserved','verifiedAt','verifiedBy','rejectionReason','trackingNumber','updatedAt','history']) && request.resource.data.updatedAt==request.time && request.resource.data.history.size()<=40;
+   allow delete: if false;
+  }
+  match /orderNotes/{id} { allow read,write: if admin(); }
+  match /reviews/{id} {
+   function purchased(o,p) { return o.items[0].productId==p || (o.items.size()>1 && o.items[1].productId==p) || (o.items.size()>2 && o.items[2].productId==p) || (o.items.size()>3 && o.items[3].productId==p) || (o.items.size()>4 && o.items[4].productId==p); }
+   allow read: if admin() || resource.data.status=='approved' || owner(resource.data.userId);
+   allow create: if signedIn() && request.resource.data.keys().hasOnly(['productId','orderId','userId','author','rating','body','status','verifiedPurchase','createdAt']) && request.resource.data.userId==request.auth.uid && id==request.resource.data.orderId+'_'+request.resource.data.productId
+    && get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId==request.auth.uid && get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.orderStatus=='delivered'
+    && purchased(get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data,request.resource.data.productId)
+    && request.resource.data.status=='pending' && request.resource.data.verifiedPurchase==true && request.resource.data.rating is int && request.resource.data.rating>=1 && request.resource.data.rating<=5 && text(request.resource.data.author,100) && text(request.resource.data.body,2000) && request.resource.data.body.size()>0 && request.resource.data.createdAt==request.time;
+   allow update,delete: if admin();
+  }
+  match /newsletterSubscribers/{uid} {
+   allow read: if owner(uid) || admin();
+   allow create,update: if owner(uid) && request.resource.data.keys().hasOnly(['email','consent','updatedAt']) && request.resource.data.email==request.auth.token.email && request.resource.data.consent is bool && request.resource.data.updatedAt==request.time;
+   allow delete: if owner(uid) || admin();
+  }
+  match /contactMessages/{uid} {
+   allow read: if owner(uid) || admin();
+   allow create,update: if owner(uid) && request.resource.data.keys().hasOnly(['userId','name','email','topic','message','updatedAt']) && request.resource.data.userId==uid && request.resource.data.email==request.auth.token.email && text(request.resource.data.name,100) && text(request.resource.data.topic,100) && text(request.resource.data.message,2000) && request.resource.data.message.size()>0 && request.resource.data.updatedAt==request.time;
+   allow delete: if admin();
+  }
+ }
+}
