@@ -41,7 +41,7 @@ export function Reveal({
 }
 export function Brand() {
   return (
-    <span className="brand">
+    <span className="brand logo logo-text">
       <span>
         glam<span className="brand-dot">.</span>
       </span>

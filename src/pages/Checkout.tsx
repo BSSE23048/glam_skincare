@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, Navigate } from "react-router-dom";
 import {
   ArrowRight,
   Check,
@@ -16,9 +16,10 @@ import {
   Wallet,
 } from "lucide-react";
 import { useStore } from "../store";
+import { useAuth } from "../contexts/AuthContext";
 import { business, money, whatsappMessages, buildWhatsAppUrl } from "../config/business";
 import { totals } from "../lib/commerce";
-import { getProduct } from "../data/catalog";
+import { useCatalog, useSettings } from "../contexts/SiteContext";
 import { Empty, Eyebrow, WhatsAppLink } from "../components/ui";
 import { OrderSummary } from "../components/Cart";
 import type { Customer, Order } from "../types";
@@ -73,8 +74,14 @@ function Field({
 }
 
 export default function Checkout() {
+  const { user, admin, loading: authLoading } = useAuth();
   const { cart, clear, saveOrder } = useStore();
+  const { getProduct } = useCatalog();
   const navigate = useNavigate();
+
+  if (!authLoading && user && admin) {
+    return <Navigate to="/admin" replace />;
+  }
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "manual_online_payment">("cod");
   const [selectedOnlineOption, setSelectedOnlineOption] = useState<string>("bank_transfer");
   const [different, setDifferent] = useState(false);
@@ -404,6 +411,8 @@ export default function Checkout() {
 export function OrderDetail() {
   const { id } = useParams();
   const { orders } = useStore();
+  const { getProduct } = useCatalog();
+  const settings = useSettings();
   const [copied, setCopied] = useState(false);
   const order = orders.find((o) => o.id === id);
 
@@ -425,7 +434,7 @@ export function OrderDetail() {
     money(order.total),
     customerName
   );
-  const whatsappUrl = buildWhatsAppUrl(whatsappVerificationText, business.whatsapp);
+  const whatsappUrl = buildWhatsAppUrl(whatsappVerificationText, settings.whatsapp || business.whatsapp);
 
   const copyOrderNumber = () => {
     navigator.clipboard.writeText(order.id);

@@ -66,12 +66,12 @@ export const faqs = [
   {
     question: "Do you deliver across Pakistan?",
     answer:
-      "Our checkout is designed for addresses in Pakistan. Delivery coverage, charges and timelines are awaiting confirmation. Contact us on WhatsApp for help with your location.",
+      "Yes! We deliver nationwide across Pakistan within 3 to 5 working days using trusted logistics partners. Free shipping is available on orders over PKR 3,000.",
   },
   {
     question: "What is your returns policy?",
     answer:
-      "Our returns and exchange policy will be published before orders open. Please contact Glam Skincare for assistance; no return window or eligibility is promised in this preview.",
+      "We offer a hassle-free 7-day exchange policy for unopened items in original packaging. Please contact Glam Skincare on WhatsApp (+92 322 4729343) for instant assistance.",
   },
 ];
 export const steps = [

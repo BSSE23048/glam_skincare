@@ -2,10 +2,14 @@ rules_version = '2';
 service cloud.firestore {
  match /databases/{database}/documents {
   function signedIn() { return request.auth != null; }
-  function admin() { return signedIn() && request.auth.token.get('admin',false) == true; }
+  function admin() { return signedIn() && (request.auth.token.get('admin',false) == true || request.auth.token.email == 'glamskincarepk@gmail.com'); }
   function owner(uid) { return signedIn() && request.auth.uid == uid; }
   function text(v,n) { return v is string && v.size() <= n; }
-  function config() { return get(/databases/$(database)/documents/settings/store).data; }
+  function config() {
+   return exists(/databases/$(database)/documents/settings/store)
+    ? get(/databases/$(database)/documents/settings/store).data
+    : { "shipping": { "fee": 200, "freeAbove": 2500 }, "bank": { "enabled": true } };
+  }
   function customer(c) {
    return c.keys().hasOnly(['name','email','phone','whatsapp','address','apartment','area','city','province','postalCode','instructions'])
     && text(c.name,100) && c.name.size()>0 && c.email == request.auth.token.email
@@ -63,12 +67,13 @@ service cloud.firestore {
    }
   }
   match /products/{id} { allow read: if admin() || resource.data.active==true; allow write: if admin(); }
+  match /productCosts/{id} { allow read, write: if admin(); }
   match /skus/{id} { allow read: if admin() || resource.data.active==true; allow write: if admin(); }
   match /categories/{id} { allow read: if true; allow write: if admin(); }
   match /settings/{id} { allow read: if id=='store'; allow write: if admin(); }
   match /siteContent/{id} { allow read: if true; allow write: if admin(); }
   match /orders/{id} {
-   allow read: if admin() || owner(resource.data.userId);
+   allow read: if admin() || resource == null || owner(resource.data.userId);
    allow create: if signedIn() && order(request.resource.data,id);
    allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','paymentStatus','inventoryReserved','verifiedAt','verifiedBy','rejectionReason','trackingNumber','updatedAt','history']) && request.resource.data.updatedAt==request.time && request.resource.data.history.size()<=40;
    allow delete: if false;

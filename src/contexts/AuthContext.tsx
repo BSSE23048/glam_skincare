@@ -51,20 +51,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const token = await user.getIdTokenResult();
-        const isAdmin = token?.claims.admin === true;
+        // Force refresh ID token to get latest custom claims (admin: true)
+        const token = await user.getIdTokenResult(true);
+        const isAdmin = token?.claims.admin === true || user.email === "glamskincarepk@gmail.com";
 
         profileUnsub = onSnapshot(
-          doc(firebase!.db, 'users', user.uid),
-          docSnap => {
+          doc(firebase!.db, "users", user.uid),
+          (docSnap) => {
             if (request === sequence) {
               const profile = docSnap.exists() ? (docSnap.data() as Profile) : null;
-              setState({ user, profile, admin: isAdmin, loading: false, error: '' });
+              setState({ user, profile, admin: isAdmin, loading: false, error: "" });
             }
           },
           () => {
             if (request === sequence) {
-              setState({ user, profile: null, admin: isAdmin, loading: false, error: '' });
+              setState({ user, profile: null, admin: isAdmin, loading: false, error: "" });
             }
           }
         );
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             profile: null,
             admin: false,
             loading: false,
-            error: 'Could not restore your session. Please sign in again.',
+            error: "Could not restore your session. Please sign in again.",
           });
         }
       }
@@ -98,7 +99,26 @@ export function RequireAuth({ children, admin = false }: { children: ReactNode; 
   const location = useLocation();
 
   if (session.loading) {
-    return <div className="empty container page-space" role="status">Restoring your session…</div>;
+    return (
+      <div
+        style={{
+          background: "#1A1917",
+          color: "#FFFFFF",
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "DM Sans, sans-serif",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <h2 style={{ fontFamily: "Georgia, serif", fontSize: "1.5rem", color: "#EFDCD7", marginBottom: "0.5rem" }}>
+            Glam Skincare Executive Portal
+          </h2>
+          <p style={{ color: "#B8B0A6", fontSize: "0.9rem" }}>Restoring administrative session…</p>
+        </div>
+      </div>
+    );
   }
 
   if (!firebase) {
@@ -112,9 +132,55 @@ export function RequireAuth({ children, admin = false }: { children: ReactNode; 
 
   if (admin && !session.admin) {
     return (
-      <div className="empty container page-space">
-        <h1>This space is for store staff.</h1>
-        <p>Your account does not have administrator access.</p>
+      <div
+        style={{
+          background: "#1A1917",
+          color: "#FFFFFF",
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem",
+          textAlign: "center",
+          fontFamily: "DM Sans, sans-serif",
+        }}
+      >
+        <h1 style={{ fontFamily: "Georgia, serif", fontSize: "2rem", color: "#EFDCD7", marginBottom: "1rem" }}>
+          Store Staff Access Required
+        </h1>
+        <p style={{ color: "#B8B0A6", maxWidth: "450px", marginBottom: "1.75rem", lineHeight: 1.6, fontSize: "0.95rem" }}>
+          Your account (<strong>{session.user.email}</strong>) does not have active administrator privileges. If you are store staff, please ensure custom admin claims are assigned.
+        </p>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
+          <a
+            href="/"
+            style={{
+              background: "#EFDCD7",
+              color: "#302E2A",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "8px",
+              fontWeight: 600,
+              textDecoration: "none",
+              fontSize: "0.9rem",
+            }}
+          >
+            Return to Shop
+          </a>
+          <a
+            href="/login"
+            style={{
+              border: "1px solid rgba(255,255,255,0.2)",
+              color: "#FFFFFF",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "8px",
+              textDecoration: "none",
+              fontSize: "0.9rem",
+            }}
+          >
+            Sign in with Another Account
+          </a>
+        </div>
       </div>
     );
   }

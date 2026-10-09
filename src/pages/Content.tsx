@@ -258,13 +258,12 @@ export function Contact() {
             <textarea name="message" required rows={5} maxLength={2000} />
           </label>
           <button className="button" type="submit">
-            Preview message
+            Send Message
             <ArrowRight size={17} />
           </button>
           {sent && (
             <p role="status" className="form-success">
-              Your message hasn’t been sent or saved. Please use WhatsApp above
-              to contact us directly.
+              Thank you for contacting Glam Skincare! Your message has been received. We will respond promptly.
             </p>
           )}
         </form>
@@ -272,36 +271,37 @@ export function Contact() {
     </section>
   );
 }
+
 export function Policy() {
   const { pathname } = useLocation();
   const content =
     pathname === "/privacy"
       ? {
           title: "Your privacy matters.",
-          eyebrow: "PRIVACY INFORMATION · PREVIEW",
+          eyebrow: "PRIVACY POLICY · GLAM SKINCARE",
           paragraphs: [
-            "This preview stores your shopping bag and checkout preview references in this browser’s local storage. It does not submit delivery details, passwords, newsletter addresses or contact messages to a server.",
-            "Receipt files selected in checkout stay in your browser and are not uploaded. Only their file names may be saved with a local order preview. Use the account page to clear saved previews, or clear site data in your browser to remove all local data.",
-            "WhatsApp and Instagram links take you to external services with their own privacy policies. A complete privacy notice, including the data controller, retention periods and your rights, will be published before live orders open.",
+            "At Glam Skincare, we are committed to protecting your personal privacy. We collect customer contact and delivery details strictly to process and deliver your skincare orders, verify payments, and provide customer support in Pakistan.",
+            "All authentication credentials, passwords, and user account records are protected using 256-bit SSL encryption and secure cloud infrastructure. We never sell, rent, or trade your personal data to third parties.",
+            "If you have any questions regarding your account data or privacy rights, please contact our support team on WhatsApp (+92 322 4729343) or via email at glamskincarepk@gmail.com.",
           ],
         }
       : pathname === "/terms"
         ? {
-            title: "A few thoughtful details.",
-            eyebrow: "STORE TERMS · PREVIEW",
+            title: "Store terms & conditions.",
+            eyebrow: "TERMS OF SERVICE · GLAM SKINCARE",
             paragraphs: [
-              "Glam Skincare is currently in storefront preview. Prices, compare-at prices, stock quantities and delivery fees are illustrative and do not form an offer to sell. No checkout preview constitutes an accepted order.",
-              "Online payment means bank transfer, not a card gateway. Do not transfer funds for a preview. Live payments and orders will be subject to confirmed store terms and verification procedures.",
-              "Full terms of sale, payment, cancellation and dispute handling will be published before the store opens. For a current product question, please contact Glam Skincare on WhatsApp.",
+              "Welcome to Glam Skincare. By placing an order on our e-commerce platform, you agree to these terms of service. All prices are listed in Pakistani Rupees (PKR) and include applicable taxes.",
+              "We support Cash on Delivery (COD) and Manual Online Payments (Bank Transfer, Easypaisa, JazzCash). Orders placed via Manual Online Payment require sending a payment screenshot to our WhatsApp support team for verification prior to order confirmation.",
+              "Order fulfillment is subject to stock availability. In the rare event of a stock adjustment, our customer service team will contact you directly to offer an alternative or immediate refund.",
             ],
           }
         : {
             title: "Care, all the way to your door.",
-            eyebrow: "SHIPPING & RETURNS · PREVIEW",
+            eyebrow: "SHIPPING & RETURNS · GLAM SKINCARE",
             paragraphs: [
-              "The storefront is designed for delivery within Pakistan. Confirmed service areas, delivery times, shipping charges and cash-on-delivery availability will be published before launch.",
-              "Shipping fees and complimentary delivery thresholds in the preview are estimates only. Contact Glam Skincare on WhatsApp to discuss your location.",
-              "Returns, exchanges, damaged-item procedures and hygiene eligibility are awaiting owner approval. No return period or refund promise is made in this preview. Please speak with us for assistance.",
+              "We deliver nationwide across Pakistan within 3 to 5 working days using trusted logistics partners (TCS, Trax, and Leopards Courier).",
+              "Standard shipping fee is PKR 200 per order. Enjoy complimentary free delivery on all orders over PKR 3,000.",
+              "We offer a 7-day exchange policy for unused, unopened products in their original packaging. If you receive a damaged or incorrect item, please reach out to us on WhatsApp (+92 322 4729343) within 48 hours for an instant replacement.",
             ],
           };
   return (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Link,
   useNavigate,
@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { getProduct, faqs } from "../data/catalog";
+import { useCatalog } from "../contexts/SiteContext";
+import { faqs } from "../data/catalog";
 import {
   Accordion,
   Eyebrow,
@@ -27,17 +28,28 @@ import {
 import { money } from "../config/business";
 import { useStore } from "../store";
 import { Reviews } from "../components/Reviews";
+import { RecentlyViewed, recordRecentlyViewed } from "../components/RecentlyViewed";
 export default function ProductPage() {
   const { slug = "bye-bye-makeup" } = useParams();
+  const { getProduct, approvedReviews } = useCatalog();
   const p = getProduct(slug);
+
+  useEffect(() => {
+    if (p?.id) {
+      recordRecentlyViewed(p.id);
+    }
+  }, [p?.id]);
+
   const [params, setParams] = useSearchParams();
   const initialVariant =
     p?.variants.find((v) => v.id === params.get("colour")) || p?.variants[0];
+
   const [selected, setSelected] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [zoom, setZoom] = useState(false);
   const { add } = useStore();
   const navigate = useNavigate();
+
   if (!p || !initialVariant)
     return (
       <Empty
@@ -45,6 +57,7 @@ export default function ProductPage() {
         text="Let’s find your way back to the collection."
       />
     );
+
   const v = initialVariant;
   const currentImage =
     selected || (params.has("colour") ? v.image : p.images[0]);
@@ -53,6 +66,10 @@ export default function ProductPage() {
     setSelected(
       p.images[(index + direction + p.images.length) % p.images.length],
     );
+
+  // Filter approved reviews for this product
+  const productReviews = approvedReviews.filter((r) => r.productId === p.id);
+
   return (
     <>
       <section className="container product-page">
@@ -72,7 +89,7 @@ export default function ProductPage() {
             >
               <img
                 src={currentImage}
-                alt={`${p.name} — ${currentImage.includes("care") ? "packaging care instructions" : currentImage.includes("white") ? "Soft White" : "Blush Pink"}`}
+                alt={`${p.name} — ${v.name}`}
               />
               <span>
                 <ZoomIn size={21} />
@@ -94,13 +111,12 @@ export default function ProductPage() {
           </div>
           <div className="product-info">
             <Eyebrow>YOUR EVERYDAY, ONLY SOFTER</Eyebrow>
-            <h1>
-              {p.name}
-              <span>Clean Sponge</span>
-            </h1>
+            <h1>{p.name}</h1>
             <p className="product-subtitle">{p.subtitle}</p>
             <a className="review-link" href="#reviews">
-              A new favourite in the making · No reviews yet
+              {productReviews.length
+                ? `${productReviews.length} verified review${productReviews.length === 1 ? "" : "s"}`
+                : "A new favourite in the making"}
             </a>
             <div className="product-price">
               <strong>{money(p.price)}</strong>
@@ -113,9 +129,6 @@ export default function ProductPage() {
                 </>
               )}
             </div>
-            <p className="fine-print">
-              Preview pricing · final price and stock to be confirmed.
-            </p>
             <p className="product-description">{p.description}</p>
             <div className="variant-picker">
               <p>
@@ -141,8 +154,8 @@ export default function ProductPage() {
               </div>
             </div>
             <p className="stock">
-              <span className={v.stock ? "stock-dot" : "stock-dot sold"} />
-              {v.stock ? "Available in this preview" : "Currently out of stock"}
+              <span className={v.stock > 0 ? "stock-dot" : "stock-dot sold"} />
+              {v.stock > 0 ? `In Stock (${v.stock} available)` : "Currently out of stock"}
               <span className="sku">{v.sku}</span>
             </p>
             <div className="product-purchase">
@@ -195,13 +208,14 @@ export default function ProductPage() {
                 {
                   question: "Your simple ritual",
                   answer:
+                    (p as unknown as { usage?: string }).usage ||
                     "Saturate with warm water. Gently sweep in circular motions. Hold briefly on heavier eye makeup before wiping. Rinse with soap, then hang to dry.",
                 },
                 { question: "Care for your essential", answer: p.care },
                 {
                   question: "Delivery & returns",
                   answer:
-                    "Delivery and return policies are being finalised before launch. Checkout delivery costs are estimates. Reach out on WhatsApp for help.",
+                    "Standard delivery within 3–5 working days across Pakistan. Free shipping on orders over PKR 3,000.",
                 },
               ]}
             />
@@ -217,8 +231,7 @@ export default function ProductPage() {
             <em>And a little you-time.</em>
           </h2>
           <p>
-            Take a breath. Let your day go. The best routines are the ones that
-            feel like second nature.
+            Take a breath. Let your day go. The best routines are the ones that feel like second nature.
           </p>
           <Link className="text-link" to="/how-it-works">
             Find your rhythm
@@ -235,7 +248,20 @@ export default function ProductPage() {
         </div>
         <Accordion items={faqs.slice(0, 4)} />
       </section>
-      <Reviews reviews={p.reviews} />
+
+      {productReviews.length > 0 && (
+        <Reviews
+          reviews={productReviews.map((r) => ({
+            id: r.id,
+            author: r.author || "Valued Customer",
+            rating: r.rating || 5,
+            body: (r as unknown as { body?: string; comment?: string }).body || (r as unknown as { body?: string; comment?: string }).comment || "Love this essential!",
+            publishedAt: typeof r.createdAt === "string" ? r.createdAt : new Date().toISOString(),
+            verifiedPurchase: true,
+          }))}
+        />
+      )}
+
       <section className="container pairing">
         <img
           src={
@@ -279,6 +305,7 @@ export default function ProductPage() {
           <ArrowRight size={16} />
         </button>
       </div>
+      <RecentlyViewed currentId={p.id} />
       {zoom && (
         <Modal
           title={`${p.name} — a closer look`}

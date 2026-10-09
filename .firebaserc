@@ -1,1 +1,5 @@
-{"projects":{"default":"demo-glam-skincare"}}
+{
+  "projects": {
+    "default": "glam-skincare"
+  }
+}

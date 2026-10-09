@@ -1,19 +1,24 @@
 import { useSearchParams } from "react-router-dom";
 import { Search, SlidersHorizontal } from "lucide-react";
-import { products } from "../data/catalog";
+import { useCatalog } from "../contexts/SiteContext";
 import { PageHeading, ProductCard } from "../components/ui";
+
 export default function Shop() {
+  const { products } = useCatalog();
   const [params, setParams] = useSearchParams();
+
   const q = params.get("q") || "";
   const category = params.get("category") || "all";
   const sort = params.get("sort") || "featured";
   const stock = params.get("stock") === "true";
   const colour = params.get("colour") || "all";
+
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     value ? next.set(key, value) : next.delete(key);
     setParams(next, { replace: true });
   };
+
   const filtered = products
     .filter(
       (p) =>
@@ -33,11 +38,13 @@ export default function Shop() {
             ? a.name.localeCompare(b.name)
             : 0,
     );
+
+  const categories = [...new Set(products.map((p) => p.category))];
+
   return (
     <section className="container page-space">
       <PageHeading eyebrow="THE GLAM COLLECTION" title="Less, but lovelier.">
-        Thoughtful essentials. Simple rituals. A little more care for your
-        everyday.
+        Thoughtful essentials. Simple rituals. A little more care for your everyday.
       </PageHeading>
       <div className="shop-toolbar">
         <div className="search-field">
@@ -76,7 +83,7 @@ export default function Shop() {
               onChange={(e) => update("category", e.target.value)}
             >
               <option value="all">All essentials</option>
-              {[...new Set(products.map((p) => p.category))].map((c) => (
+              {categories.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
@@ -104,7 +111,7 @@ export default function Shop() {
             Reset filters
           </button>
           <p className="fine-print">
-            The collection starts with one thoughtful essential. More to come.
+            Everyday essentials crafted with intention.
           </p>
         </aside>
         <div>
@@ -128,9 +135,6 @@ export default function Shop() {
               </button>
             </div>
           )}
-          <p className="fine-print">
-            Prices and stock shown are illustrative until launch.
-          </p>
         </div>
       </div>
     </section>

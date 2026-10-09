@@ -2,18 +2,19 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ShoppingBag, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "../store";
-import { getProduct } from "../data/catalog";
+import { useCatalog } from "../contexts/SiteContext";
 import { business, money } from "../config/business";
 import { totals } from "../lib/commerce";
 import { Modal, Quantity, WhatsAppLink } from "./ui";
 
 export function CartLines() {
   const { cart, update } = useStore();
+  const { getProduct } = useCatalog();
   return (
     <div className="cart-lines">
       {cart.map((line) => {
         const p = getProduct(line.productId)!;
-        const v = p.variants.find((v) => v.id === line.variantId)!;
+        const v = p?.variants.find((v) => v.id === line.variantId)!;
         return (
           <article className="cart-line" key={`${p.id}-${v.id}`}>
             <Link to={`/product/${p.slug}`}>
@@ -57,7 +58,7 @@ export function OrderSummary({
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   return (
-    <div className="order-summary">
+    <div className="order-summary cart-summary cart-totals">
       <h2>Your ritual, wrapped up.</h2>
       <div className="summary-row">
         <span>Subtotal</span>
@@ -78,7 +79,7 @@ export function OrderSummary({
           className="discount"
           onSubmit={(e) => {
             e.preventDefault();
-            setError("No discount codes are active in this preview.");
+            setError("Invalid or expired discount code. Please check your code and try again.");
           }}
         >
           <label className="sr-only" htmlFor="discount">
@@ -102,8 +103,7 @@ export function OrderSummary({
         <strong>{money(sums.total)}</strong>
       </div>
       <p className="fine-print">
-        Preview prices and delivery estimates. Final prices, stock and delivery
-        terms await confirmation.
+        Complimentary shipping on orders over PKR 3,000. All taxes included.
       </p>
     </div>
   );

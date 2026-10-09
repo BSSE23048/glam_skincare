@@ -16,9 +16,12 @@ import {
   RitualSteps,
   ProductCard,
 } from "../components/ui";
-import { faqs, products } from "../data/catalog";
+import { faqs } from "../data/catalog";
+import { useCatalog } from "../contexts/SiteContext";
 import { business } from "../config/business";
+
 export default function Home() {
+  const { products } = useCatalog();
   return (
     <>
       <section className="hero">
@@ -127,7 +130,7 @@ export default function Home() {
         <Reveal className="featured-card">
           <ProductCard product={products[0]} />
           <p className="fine-print">
-            Two soft shades. One simple ritual. Prices shown are a preview.
+            Two soft shades. One simple ritual. Crafted for your daily glow.
           </p>
         </Reveal>
       </section>
@@ -253,8 +256,7 @@ export default function Home() {
           Your story <em>belongs here.</em>
         </h2>
         <p>
-          Good things start with an honest conversation. Customer reviews will
-          appear here after launch, with verified purchases clearly marked.
+          Good things start with an honest conversation. Join our growing community of skincare lovers across Pakistan.
         </p>
         <span className="quiet-badge">A new ritual. A new community.</span>
       </section>

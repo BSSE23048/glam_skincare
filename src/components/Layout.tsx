@@ -10,10 +10,13 @@ import {
   UserRound,
   MessageCircle,
   Check,
+  Package,
 } from "lucide-react";
+import { OrderTrackerModal } from "./OrderTracker";
 import { Brand, Modal, Eyebrow } from "./ui";
 import { CartDrawer } from "./Cart";
 import { useStore } from "../store";
+import { useAuth } from "../contexts/AuthContext";
 import { business, whatsappUrl } from "../config/business";
 import { products } from "../data/catalog";
 const nav = [
@@ -22,8 +25,10 @@ const nav = [
   ["/about", "Our story"],
 ];
 export function Layout({ children }: { children: React.ReactNode }) {
+  const { admin } = useAuth();
   const [mobile, setMobile] = useState(false);
   const [search, setSearch] = useState(false);
+  const [showTracker, setShowTracker] = useState(false);
   const [query, setQuery] = useState("");
   const { cart, setDrawer, message } = useStore();
   const location = useLocation();
@@ -45,6 +50,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     : location.pathname.startsWith("/product/")
       ? "Hi Glam Skincare! I have a question about Bye-Bye Makeup."
       : undefined;
+  if (location.pathname.startsWith("/admin")) {
+    return <main id="main">{children}</main>;
+  }
+
   return (
     <>
       <div id="site-content">
@@ -79,6 +88,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="header-actions">
               <button
                 className="icon-button"
+                aria-label="Track your order"
+                title="Track your order"
+                onClick={() => setShowTracker(true)}
+              >
+                <Package size={21} />
+              </button>
+              <button
+                className="icon-button"
                 aria-label="Search products"
                 onClick={() => setSearch(true)}
               >
@@ -86,8 +103,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </button>
               <Link
                 className="icon-button account-icon"
-                to="/account"
-                aria-label="My account"
+                to={admin ? "/admin" : "/account"}
+                aria-label={admin ? "Admin portal" : "My account"}
+                title={admin ? "Admin portal" : "My account"}
               >
                 <UserRound size={21} />
               </Link>
@@ -118,6 +136,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span>Here to help</span>
         </a>
       </div>
+      {showTracker && <OrderTrackerModal onClose={() => setShowTracker(false)} />}
       {mobile && (
         <Modal
           title="Make yourself at home."

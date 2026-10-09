@@ -1,44 +1,162 @@
-# Glam Skincare
+# Glam Skincare — E-Commerce Platform
 
-Responsive beauty storefront for **Glam Skincare — Glow. Care. Confidence.** React, Vite, TypeScript, Tailwind CSS, React Router, Framer Motion and Firebase-ready services.
+**Brand:** Glam Skincare  
+**Tagline:** Glow. Care. Confidence.  
+**Primary Product:** Bye-Bye Makeup reusable microfiber makeup-removal pad.
 
-## Run
+A high-performance, mobile-first beauty storefront built with React 19, TypeScript, Vite, Framer Motion, and Firebase (Authentication & Cloud Firestore). Designed to operate within Firebase's free Spark plan using a direct WhatsApp payment verification workflow.
 
-```sh
+---
+
+## Technical Stack
+
+- **Frontend:** React 19, React Router v7, TypeScript, Framer Motion, Lucide React
+- **Styling:** Custom responsive CSS design system (Blush pink, warm white, charcoal, nude palette)
+- **Backend / BaaS:** Firebase Authentication, Cloud Firestore
+- **Hosting:** Firebase Hosting (Static SPA with rewrites)
+- **Communication:** Contextual WhatsApp Deep Links (`wa.me`)
+- **Testing:** Vitest (Unit tests), Playwright (E2E & Accessibility), Axe Core
+
+---
+
+## Quick Start & Local Development
+
+### Prerequisites
+Node.js 18+ and npm installed.
+
+### Installation
+
+```bash
+# Install dependencies
 npm install
+
+# Start development server
 npm run dev
-npm run build
-npm run preview
+
+# Run unit tests
 npm test
+
+# Run Playwright E2E tests
 npm run test:e2e
+
+# Production build & type check
+npm run build
 ```
 
-Open `http://127.0.0.1:5173`. Use `npm.cmd` on Windows when PowerShell script execution is restricted. Browser tests use installed Chrome by default; `PLAYWRIGHT_CHANNEL` can override the channel.
+The application will run locally at `http://127.0.0.1:5173`.
 
-## Phase 1
+---
 
-Editorial homepage, searchable/filterable/sortable collection, product gallery/zoom, colour variants, persistent stock-limited guest cart, drawer, Pakistan checkout, receipt-selection UI, local order previews, account/auth UI, FAQ search, contact, story, ritual and policy pages. Includes contextual WhatsApp, social/newsletter UI, accessible dialogs, reduced motion, route loading/error states, responsive menu/purchase controls, SEO metadata and structured-data preparation.
+## Free-First Architecture & Design Principles
 
-**This is a preview, not live commerce.** Sample values: PKR 850 price, PKR 1,100 compare-at price, 20 units per colour, PKR 200 delivery and PKR 2,500 free-delivery threshold. Values are visibly provisional. No real orders, payments, sign-ins, messages or uploads occur. Delivery fields and receipt bytes are not persisted or transmitted; only cart data and non-PII preview summaries are stored locally.
+Glam Skincare is engineered to run at **zero recurring infrastructure cost** during launch:
 
-## Structure
+1. **Firebase Authentication:** Handles customer registration, sign-in, and administrator session tokens.
+2. **Cloud Firestore:** Real-time database for users, products, categories, orders, reviews, and site settings.
+3. **No Payment Screenshot Uploads:** Customers complete manual online payments (Bank Transfer / Easypaisa / JazzCash) and send verification screenshots directly via WhatsApp. No paid Cloud Storage or Cloud Functions required.
+4. **Static Product Imagery:** High-resolution product photography is stored directly in `/public/images`.
+5. **WhatsApp Integration:** Dynamic deep-link generator formats pre-filled contextual messages for support, product inquiries, and payment verification.
 
-- `src/components`: shared layout, cart, accessible UI and SEO.
-- `src/config/business.ts`: central business settings, including the single WhatsApp number.
-- `src/data/catalog.ts`: extensible product/variant catalog.
-- `src/lib`: cart integrity and total calculations with unit tests.
-- `src/pages`: storefront, checkout, content and accounts.
-- `src/services`: Firebase initializer and Phase 2 repository contracts.
-- `src/styles.css`: design tokens and responsive styling.
-- `tests`: browser flows, responsive widths and accessibility checks.
-- `public/images`: selected and descriptively named supplied photos.
+---
 
-Original JPEGs are untouched. [Asset audit](docs/ASSETS.md) explains all selections; DI’LAMOR remains reference-only. No replacement product images were generated.
+## Payment & Order Workflows
 
-## Firebase
+### 1. Cash on Delivery (COD)
+- Customer completes checkout with COD selected.
+- Order is created in Firestore with:
+  - `paymentMethod = "cod"`
+  - `paymentStatus = "cod_pending"`
+  - `orderStatus = "pending"`
+- Confirmation screen displays order details and estimated delivery time.
 
-Copy `.env.example` to `.env.local` when ready. Never put service-account secrets in `VITE_` variables. Firebase initializes lazily; environment settings alone do not enable commerce. Hosting configuration is included, while Firestore and Storage deny all access pending reviewed rules. Read the [Phase 2 handoff and owner checklist](docs/PHASE-2.md) before integration. No project credentials or bank details are included.
+### 2. Manual Online Payment (Bank / Easypaisa / JazzCash)
+- Customer selects online payment method.
+- Store bank details, account title, and IBAN placeholders are displayed.
+- Order is created in Firestore with:
+  - `paymentMethod = "manual_online_payment"`
+  - `paymentStatus = "awaiting_verification"`
+  - `orderStatus = "payment_verification"`
+- Customer receives readable Order Number (e.g. `#GS-1048`) and a large **SEND PAYMENT SCREENSHOT ON WHATSAPP** CTA.
+- Clicking the CTA opens WhatsApp with a pre-formatted message:
+  ```text
+  Hi Glam Skincare! 🤍
 
-## Design
+  I have placed an online payment order.
 
-Ivory, muted blush, charcoal and warm nude, expressive serif headings and clean sans-serif labels. Real supplied photography anchors the identity. Google Fonts have local system fallbacks. Animations respect reduced motion; layouts cover 320 px through large desktop.
+  Order Number: #GS-1048
+  Order Amount: Rs. 2,499
+  Name: Sara Ahmed
+
+  I am sending my payment screenshot here for verification.
+
+  Please confirm my payment and process my order.
+
+  Thank you!
+  ```
+
+---
+
+## Admin Dashboard (`/admin`)
+
+The admin portal is protected via Firebase Auth custom claims (`request.auth.token.admin == true`).
+
+### Features:
+- **Dashboard & Notification Center:** Real-time counters for New Orders, Payments Awaiting Verification, Low Stock, and Reviews Pending Moderation.
+- **Payment Verification Queue (`ADMIN > PAYMENTS`):** Lists orders awaiting review. Options to:
+  - Contact customer directly on WhatsApp with pre-filled order context.
+  - **Verify Payment:** Confirmation modal sets `paymentStatus = "verified"` and `orderStatus = "confirmed"`.
+  - **Reject Payment:** Reason selection (Payment not received, Incorrect amount, etc.) sets `paymentStatus = "rejected"` and `orderStatus = "payment_rejected"`.
+- **Order Management:** Search by order number/phone, filter by status, update fulfillment steps (Processing, Shipped, Delivered, Cancelled).
+- **Product & Review Management:** Update prices, stock thresholds, and moderate customer reviews.
+
+### Bootstrap Admin Account (First-Time Setup)
+
+To assign administrator privileges to your user account:
+
+```bash
+# Format: node scripts/bootstrap-admin.mjs <FIREBASE_PROJECT_ID> <USER_UID>
+node scripts/bootstrap-admin.mjs your-project-id YOUR_FIREBASE_UID
+```
+
+*(Note: Sign out and back in after running the script to refresh Auth ID tokens).*
+
+---
+
+## Environment Variables (`.env.example`)
+
+Copy `.env.example` to `.env.local`:
+
+```env
+VITE_FIREBASE_API_KEY=your-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
+VITE_FIREBASE_APP_ID=your-app-id
+VITE_SITE_URL=https://glamskincare.pk
+```
+
+If Firebase credentials are absent, the site operates seamlessly in local fallback preview mode.
+
+---
+
+## Deployment to Firebase Hosting
+
+```bash
+# Log in to Firebase CLI
+npx firebase login
+
+# Target your production Firebase project
+npx firebase use --add
+
+# Deploy hosting and security rules
+npx firebase deploy
+```
+
+---
+
+## Future Optional Upgrades
+
+If the business expands and requires paid automation:
+1. **Firebase Storage:** Enable Cloud Storage rules for automatic in-app payment screenshot uploads.
+2. **Payment Gateway:** Integrate Stripe / PayFast for automated instant card processing.
+3. **Transactional Email:** Connect SendGrid / Postmark for automated order confirmation emails.

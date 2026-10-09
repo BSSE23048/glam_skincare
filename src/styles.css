@@ -169,6 +169,11 @@ main:focus {
   margin-bottom: 20px;
   text-transform: uppercase;
 }
+.fine-print {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #584f47;
+}
 .text-link {
   display: inline-flex;
   align-items: center;

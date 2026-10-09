@@ -5,6 +5,9 @@ export interface Variant {
   image: string;
   stock: number;
   sku: string;
+  active?: boolean;
+  priceOverride?: number;
+  lowStockThreshold?: number;
 }
 export interface Product {
   id: string;

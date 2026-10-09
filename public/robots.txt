@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /cart
+Disallow: /checkout
+Disallow: /order-success
+Disallow: /login
+Disallow: /register
+
+Sitemap: https://glamskincare.pk/sitemap.xml

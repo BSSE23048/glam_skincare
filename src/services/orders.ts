@@ -3,6 +3,7 @@ import type { CartLine, Customer } from '../types';
 import type { OrderItem, OrderStatus, PaymentMethod, ShopOrder, SkuRecord, StoreSettings } from '../domain/models';
 import { requireFirebase } from './firebase';
 import { canTransition } from '../domain/orders';
+import { business } from '../config/business';
 
 export function newOrderId() {
   const random = Math.floor(1000 + Math.random() * 9000);
@@ -22,11 +23,10 @@ export async function createOrder(input: {
   if (!input.cart.length || input.cart.length > 5) throw new Error('Your bag can contain up to 5 different variants per order.');
 
   const settingsSnap = await getDoc(doc(db, 'settings', 'store'));
-  if (!settingsSnap.exists()) throw new Error('Store settings are not ready.');
-  const settings = settingsSnap.data() as StoreSettings;
+  const settings = settingsSnap.exists() ? (settingsSnap.data() as StoreSettings) : business;
 
   const isManual = input.paymentMethod === 'manual_online_payment';
-  if (isManual && !settings.bank.enabled) {
+  if (isManual && settings.bank && !settings.bank.enabled) {
     throw new Error('Manual online payment is currently unavailable.');
   }
 
@@ -39,7 +39,7 @@ export async function createOrder(input: {
     }
 
     const config = await transaction.get(doc(db, 'settings', 'store'));
-    const current = config.data() as StoreSettings;
+    const current = config.exists() ? (config.data() as StoreSettings) : business;
     const skuIds = input.cart.map(line => input.skus[`${line.productId}:${line.variantId}`]);
     if (skuIds.some(sku => !sku) || new Set(skuIds).size !== skuIds.length) {
       throw new Error('Please refresh your bag before ordering.');
@@ -147,13 +147,28 @@ export async function updateOrder(id: string, action: OrderStatus | 'verify' | '
     const release = nextStatus === 'cancelled' && order.inventoryReserved;
 
     const records = reserve || release ? await Promise.all(order.items.map(item => transaction.get(doc(db, 'skus', item.sku)))) : [];
+    const productDocs = reserve || release ? await Promise.all(order.items.map(item => transaction.get(doc(db, 'products', item.productId)))) : [];
+
     records.forEach((skuSnap, index) => {
       const item = order.items[index];
       const sku = skuSnap.data() as SkuRecord;
       if (!skuSnap.exists() || (reserve && (!sku.active || sku.stock < item.quantity))) {
-        throw new Error(`${item.name} is no longer in stock. Resolve stock before confirming.`);
+        throw new Error(`${item.name} (${item.variantName || 'variant'}) is no longer in stock. Resolve stock before confirming.`);
       }
-      transaction.update(skuSnap.ref, { stock: sku.stock + (release ? item.quantity : -item.quantity), updatedAt: serverTimestamp() });
+      const newStock = Math.max(0, sku.stock + (release ? item.quantity : -item.quantity));
+      transaction.update(skuSnap.ref, { stock: newStock, updatedAt: serverTimestamp() });
+
+      const prodSnap = productDocs[index];
+      if (prodSnap && prodSnap.exists()) {
+        const prodData = prodSnap.data() as { variants?: { id: string; sku?: string; stock: number }[] };
+        const updatedVariants = (prodData.variants || []).map(v => {
+          if (v.id === item.variantId || v.sku === item.sku) {
+            return { ...v, stock: Math.max(0, v.stock + (release ? item.quantity : -item.quantity)) };
+          }
+          return v;
+        });
+        transaction.update(prodSnap.ref, { variants: updatedVariants, updatedAt: serverTimestamp() });
+      }
     });
 
     transaction.update(ref, {
