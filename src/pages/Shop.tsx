@@ -15,7 +15,8 @@ export default function Shop() {
 
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
-    value ? next.set(key, value) : next.delete(key);
+    if (value) next.set(key, value);
+    else next.delete(key);
     setParams(next, { replace: true });
   };
 
@@ -44,7 +45,8 @@ export default function Shop() {
   return (
     <section className="container page-space">
       <PageHeading eyebrow="THE GLAM COLLECTION" title="Less, but lovelier.">
-        Thoughtful essentials. Simple rituals. A little more care for your everyday.
+        Thoughtful essentials. Simple rituals. A little more care for your
+        everyday.
       </PageHeading>
       <div className="shop-toolbar">
         <div className="search-field">

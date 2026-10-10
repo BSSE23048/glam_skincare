@@ -18,11 +18,7 @@ const Shop = lazy(() => import("./pages/Shop"));
 const Product = lazy(() => import("./pages/Product"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const Admin = lazy(() => import("./pages/Admin"));
-const OrderDetail = lazy(() =>
-  import("./pages/Checkout").then((module) => ({
-    default: module.OrderDetail,
-  })),
-);
+const OrderDetail = lazy(() => import("./pages/OrderDetail"));
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -78,7 +74,7 @@ function App() {
       >
         <motion.div
           key={pathname}
-          initial={{ opacity: 0 }}
+          initial={pathname.startsWith("/admin") ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.25 }}
         >
@@ -94,10 +90,38 @@ function App() {
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/login" element={<Auth />} />
             <Route path="/register" element={<Auth />} />
-            <Route path="/account" element={<Account />} />
-            <Route path="/account/orders" element={<Orders />} />
-            <Route path="/account/orders/:id" element={<OrderDetail />} />
-            <Route path="/order-success/:id" element={<OrderDetail />} />
+            <Route
+              path="/account"
+              element={
+                <RequireAuth>
+                  <Account />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/account/orders"
+              element={
+                <RequireAuth>
+                  <Orders />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/account/orders/:id"
+              element={
+                <RequireAuth>
+                  <OrderDetail />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/order-success/:id"
+              element={
+                <RequireAuth>
+                  <OrderDetail />
+                </RequireAuth>
+              }
+            />
             <Route
               path="/admin/*"
               element={
@@ -140,4 +164,3 @@ createRoot(document.getElementById("root")!).render(
     </MotionConfig>
   </ErrorBoundary>,
 );
-

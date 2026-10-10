@@ -2,13 +2,11 @@ rules_version = '2';
 service cloud.firestore {
  match /databases/{database}/documents {
   function signedIn() { return request.auth != null; }
-  function admin() { return signedIn() && (request.auth.token.get('admin',false) == true || request.auth.token.email == 'glamskincarepk@gmail.com'); }
+  function admin() { return signedIn() && request.auth.token.get('admin',false) == true; }
   function owner(uid) { return signedIn() && request.auth.uid == uid; }
   function text(v,n) { return v is string && v.size() <= n; }
   function config() {
-   return exists(/databases/$(database)/documents/settings/store)
-    ? get(/databases/$(database)/documents/settings/store).data
-    : { "shipping": { "fee": 200, "freeAbove": 2500 }, "bank": { "enabled": true } };
+   return get(/databases/$(database)/documents/settings/store).data;
   }
   function customer(c) {
    return c.keys().hasOnly(['name','email','phone','whatsapp','address','apartment','area','city','province','postalCode','instructions'])
@@ -20,35 +18,34 @@ service cloud.firestore {
   }
   function line(l) {
    let s = get(/databases/$(database)/documents/skus/$(l.sku)).data;
-   return l.keys().hasOnly(['sku','productId','variantId','name','variantName','image','unitPrice','quantity','lineTotal'])
-    && s.active == true && l.quantity is int && l.quantity>=1 && l.quantity<=10 && l.quantity<=s.stock
-    && l.unitPrice==s.price && l.lineTotal==s.price*l.quantity && l.productId==s.productId && l.variantId==s.variantId
-    && l.name==s.name && l.variantName==s.variantName && l.image==s.image;
+   return s.active == true && l.quantity is int && l.quantity>=1 && l.quantity<=10 && l.quantity<=s.stock
+    && l == { 'sku': l.sku, 'productId': s.productId, 'variantId': s.variantId, 'name': s.name, 'variantName': s.variantName, 'image': s.image, 'unitPrice': s.price, 'quantity': l.quantity, 'lineTotal': s.price*l.quantity };
   }
   function lineAt(a,i) { return a.size()<=i || line(a[i]); }
   function amount(a,i) { return a.size()>i ? a[i].lineTotal : 0; }
   function distinct(a) {
-   return (a.size()<2 || a[0].sku!=a[1].sku)
-    && (a.size()<3 || (a[0].sku!=a[2].sku && a[1].sku!=a[2].sku))
-    && (a.size()<4 || (a[0].sku!=a[3].sku && a[1].sku!=a[3].sku && a[2].sku!=a[3].sku))
-    && (a.size()<5 || (a[0].sku!=a[4].sku && a[1].sku!=a[4].sku && a[2].sku!=a[4].sku && a[3].sku!=a[4].sku));
+   return [a[0].sku, a.size()>1 ? a[1].sku : null, a.size()>2 ? a[2].sku : null, a.size()>3 ? a[3].sku : null, a.size()>4 ? a[4].sku : null].toSet().size() == (a.size()==5 ? 5 : a.size()+1);
   }
   function payment(o,id) {
    return (o.paymentMethod=='cod' && o.paymentStatus=='cod_pending' && o.orderStatus=='pending')
     || (o.paymentMethod=='manual_online_payment' && config().bank.enabled==true && o.paymentStatus=='awaiting_verification' && o.orderStatus=='payment_verification');
   }
   function order(o,id) {
-   let shipping = o.subtotal>=config().shipping.freeAbove ? 0 : config().shipping.fee;
-   return o.keys().hasOnly(['orderNumber','userId','customer','items','subtotal','shipping','total','paymentMethod','paymentStatus','orderStatus','createdAt','updatedAt','inventoryReserved','verifiedAt','verifiedBy','rejectionReason','trackingNumber','history'])
-    && id.matches('^GS-[0-9A-Z]{4,16}$') && o.orderNumber==id && o.userId==request.auth.uid && customer(o.customer)
-    && o.items is list && o.items.size()>=1 && o.items.size()<=5 && distinct(o.items)
-    && lineAt(o.items,0) && lineAt(o.items,1) && lineAt(o.items,2) && lineAt(o.items,3) && lineAt(o.items,4)
-    && o.subtotal==amount(o.items,0)+amount(o.items,1)+amount(o.items,2)+amount(o.items,3)+amount(o.items,4)
-    && o.shipping==shipping && o.total==o.subtotal+shipping && payment(o,id)
-    && o.createdAt==request.time && o.updatedAt==request.time && o.inventoryReserved==false
-    && o.verifiedAt==null && o.verifiedBy=='' && o.rejectionReason=='' && o.trackingNumber=='' && o.history is list
-    && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/limits/checkout).data.orderId==id
-    && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/limits/checkout).data.lastOrderAt==request.time;
+   let settings = config();
+   let items = o.items;
+   let subtotal = amount(items,0)+amount(items,1)+amount(items,2)+amount(items,3)+amount(items,4);
+   let shipping = subtotal>=settings.shipping.freeAbove ? 0 : settings.shipping.fee;
+   let checkout = getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/limits/checkout).data;
+   return id.matches('^GS-[0-9A-Z]{4,16}$') && customer(o.customer)
+    && items is list && items.size()>=1 && items.size()<=5 && distinct(items)
+    && lineAt(items,0) && lineAt(items,1) && lineAt(items,2) && lineAt(items,3) && lineAt(items,4)
+    && payment(o,id)
+    && o == { 'orderNumber': id, 'userId': request.auth.uid, 'customer': o.customer, 'items': items,
+      'subtotal': subtotal, 'shipping': shipping, 'total': subtotal+shipping,
+      'paymentMethod': o.paymentMethod, 'paymentStatus': o.paymentStatus, 'orderStatus': o.orderStatus,
+      'createdAt': request.time, 'updatedAt': request.time, 'inventoryReserved': false,
+      'verifiedAt': null, 'verifiedBy': '', 'rejectionReason': '', 'trackingNumber': '', 'history': [] }
+    && checkout.orderId==id && checkout.lastOrderAt==request.time;
   }
   match /users/{uid} {
    allow read: if owner(uid) || admin();
@@ -66,14 +63,16 @@ service cloud.firestore {
      && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.createdAt==request.time;
    }
   }
-  match /products/{id} { allow read: if admin() || resource.data.active==true; allow write: if admin(); }
+  match /products/{id} { allow read: if admin() || resource.data.active==true; allow create,update: if admin() && !request.resource.data.keys().hasAny(['costPrice','packagingCost','handlingCost']); allow delete: if admin(); }
+  match /productSlugs/{id} { allow read, write: if admin(); }
   match /productCosts/{id} { allow read, write: if admin(); }
-  match /skus/{id} { allow read: if admin() || resource.data.active==true; allow write: if admin(); }
+  match /skus/{id} { allow read: if admin() || resource.data.active==true; allow create,update: if admin() && !request.resource.data.keys().hasAny(['costPrice','packagingCost','handlingCost']) && request.resource.data.stock is int && request.resource.data.stock>=0; allow delete: if admin(); }
   match /categories/{id} { allow read: if true; allow write: if admin(); }
   match /settings/{id} { allow read: if id=='store'; allow write: if admin(); }
   match /siteContent/{id} { allow read: if true; allow write: if admin(); }
   match /orders/{id} {
-   allow read: if admin() || resource == null || owner(resource.data.userId);
+   allow get: if admin() || (signedIn() && resource == null) || owner(resource.data.userId);
+   allow list: if admin() || owner(resource.data.userId);
    allow create: if signedIn() && order(request.resource.data,id);
    allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','paymentStatus','inventoryReserved','verifiedAt','verifiedBy','rejectionReason','trackingNumber','updatedAt','history']) && request.resource.data.updatedAt==request.time && request.resource.data.history.size()<=40;
    allow delete: if false;

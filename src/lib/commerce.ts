@@ -1,6 +1,6 @@
-import { getProduct } from "../data/catalog";
+import { products as seedProducts } from "../data/catalog";
 import { business } from "../config/business";
-import type { CartLine, Discount, Order } from "../types";
+import type { CartLine, Discount, Order, Product } from "../types";
 export function sanitizeOrders(input: unknown): Order[] {
   if (!Array.isArray(input)) return [];
   return input
@@ -36,12 +36,15 @@ export function sanitizeOrders(input: unknown): Order[] {
     })
     .slice(0, 20);
 }
-export function sanitizeCart(input: unknown): CartLine[] {
+export function sanitizeCart(
+  input: unknown,
+  catalog: Product[] = seedProducts,
+): CartLine[] {
   if (!Array.isArray(input)) return [];
   const result: CartLine[] = [];
   for (const line of input) {
     if (!line || typeof line !== "object") continue;
-    const product = getProduct(line.productId);
+    const product = catalog.find((p) => p.id === line.productId);
     const variant = product?.variants.find((v) => v.id === line.variantId);
     if (
       !product ||
@@ -54,7 +57,7 @@ export function sanitizeCart(input: unknown): CartLine[] {
       (l) => l.productId === product.id && l.variantId === variant.id,
     );
     const quantity = Math.min(
-      variant.stock,
+      Math.min(10, variant.active === false ? 0 : variant.stock),
       Math.floor(line.quantity) + (existing?.quantity ?? 0),
     );
     if (quantity < 1) continue;
@@ -64,13 +67,28 @@ export function sanitizeCart(input: unknown): CartLine[] {
   }
   return result;
 }
-export function totals(items: CartLine[], discount?: Discount) {
-  const subtotal = sanitizeCart(items).reduce(
-    (sum, line) => sum + getProduct(line.productId)!.price * line.quantity,
+export function totals(
+  items: CartLine[],
+  discount?: Discount,
+  catalog: Product[] = seedProducts,
+  shippingConfig = business.shipping,
+) {
+  const subtotal = sanitizeCart(items, catalog).reduce(
+    (sum, line) =>
+      sum +
+      (catalog
+        .find((p) => p.id === line.productId)!
+        .variants.find((v) => v.id === line.variantId)?.priceOverride ??
+        catalog.find((p) => p.id === line.productId)!.price) *
+        line.quantity,
     0,
   );
   const saving =
-    discount?.enabled && subtotal >= discount.minimum
+    discount?.enabled &&
+    Number.isFinite(discount.value) &&
+    discount.value >= 0 &&
+    (discount.kind !== "percentage" || discount.value <= 100) &&
+    subtotal >= discount.minimum
       ? Math.min(
           subtotal,
           discount.kind === "fixed"
@@ -79,9 +97,9 @@ export function totals(items: CartLine[], discount?: Discount) {
         )
       : 0;
   const shipping =
-    subtotal === 0 || subtotal - saving >= business.shipping.freeAbove
+    subtotal === 0 || subtotal - saving >= shippingConfig.freeAbove
       ? 0
-      : business.shipping.fee;
+      : shippingConfig.fee;
   return {
     subtotal,
     shipping,

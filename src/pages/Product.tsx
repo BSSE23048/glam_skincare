@@ -15,7 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { useCatalog } from "../contexts/SiteContext";
+import { useCatalog, useSettings } from "../contexts/SiteContext";
 import { faqs } from "../data/catalog";
 import {
   Accordion,
@@ -28,10 +28,14 @@ import {
 import { money } from "../config/business";
 import { useStore } from "../store";
 import { Reviews } from "../components/Reviews";
-import { RecentlyViewed, recordRecentlyViewed } from "../components/RecentlyViewed";
+import {
+  RecentlyViewed,
+  recordRecentlyViewed,
+} from "../components/RecentlyViewed";
 export default function ProductPage() {
+  const settings = useSettings();
   const { slug = "bye-bye-makeup" } = useParams();
-  const { getProduct, approvedReviews } = useCatalog();
+  const { getProduct, approvedReviews, loading, error } = useCatalog();
   const p = getProduct(slug);
 
   useEffect(() => {
@@ -50,6 +54,18 @@ export default function ProductPage() {
   const { add } = useStore();
   const navigate = useNavigate();
 
+  if (loading)
+    return (
+      <div className="empty" role="status">
+        Loading product?
+      </div>
+    );
+  if (error)
+    return (
+      <div className="empty" role="alert">
+        {error}
+      </div>
+    );
   if (!p || !initialVariant)
     return (
       <Empty
@@ -87,10 +103,7 @@ export default function ProductPage() {
               onClick={() => setZoom(true)}
               aria-label="Zoom product image"
             >
-              <img
-                src={currentImage}
-                alt={`${p.name} — ${v.name}`}
-              />
+              <img src={currentImage} alt={`${p.name} — ${v.name}`} />
               <span>
                 <ZoomIn size={21} />
               </span>
@@ -119,7 +132,7 @@ export default function ProductPage() {
                 : "A new favourite in the making"}
             </a>
             <div className="product-price">
-              <strong>{money(p.price)}</strong>
+              <strong>{money(v.priceOverride ?? p.price)}</strong>
               {p.compareAt && p.compareAt > p.price && (
                 <>
                   <del>{money(p.compareAt)}</del>
@@ -155,11 +168,17 @@ export default function ProductPage() {
             </div>
             <p className="stock">
               <span className={v.stock > 0 ? "stock-dot" : "stock-dot sold"} />
-              {v.stock > 0 ? `In Stock (${v.stock} available)` : "Currently out of stock"}
+              {v.stock > 0
+                ? `In Stock (${v.stock} available)`
+                : "Currently out of stock"}
               <span className="sku">{v.sku}</span>
             </p>
             <div className="product-purchase">
-              <Quantity value={quantity} max={v.stock} onChange={setQuantity} />
+              <Quantity
+                value={quantity}
+                max={Math.min(10, v.stock)}
+                onChange={setQuantity}
+              />
               <button
                 className="button"
                 disabled={!v.stock}
@@ -214,8 +233,7 @@ export default function ProductPage() {
                 { question: "Care for your essential", answer: p.care },
                 {
                   question: "Delivery & returns",
-                  answer:
-                    "Standard delivery within 3–5 working days across Pakistan. Free shipping on orders over PKR 3,000.",
+                  answer: `${settings.shipping.estimatedDays}. Free shipping from ${money(settings.shipping.freeAbove)}. ${settings.returnsPolicy}`,
                 },
               ]}
             />
@@ -231,7 +249,8 @@ export default function ProductPage() {
             <em>And a little you-time.</em>
           </h2>
           <p>
-            Take a breath. Let your day go. The best routines are the ones that feel like second nature.
+            Take a breath. Let your day go. The best routines are the ones that
+            feel like second nature.
           </p>
           <Link className="text-link" to="/how-it-works">
             Find your rhythm
@@ -254,10 +273,10 @@ export default function ProductPage() {
           reviews={productReviews.map((r) => ({
             id: r.id,
             author: r.author || "Valued Customer",
-            rating: r.rating || 5,
-            body: (r as unknown as { body?: string; comment?: string }).body || (r as unknown as { body?: string; comment?: string }).comment || "Love this essential!",
-            publishedAt: typeof r.createdAt === "string" ? r.createdAt : new Date().toISOString(),
-            verifiedPurchase: true,
+            rating: r.rating,
+            body: r.body,
+            publishedAt: r.createdAt?.toDate?.().toISOString() || "",
+            verifiedPurchase: r.verifiedPurchase,
           }))}
         />
       )}
@@ -294,7 +313,7 @@ export default function ProductPage() {
       <div className="mobile-buy">
         <span>
           {p.name}
-          <strong>{money(p.price)}</strong>
+          <strong>{money(v.priceOverride ?? p.price)}</strong>
         </span>
         <button
           className="button"

@@ -128,7 +128,11 @@ export default function Home() {
           </div>
         </Reveal>
         <Reveal className="featured-card">
-          <ProductCard product={products[0]} />
+          {products[0] ? (
+            <ProductCard product={products[0]} />
+          ) : (
+            <p role="status">The collection will appear here when available.</p>
+          )}
           <p className="fine-print">
             Two soft shades. One simple ritual. Crafted for your daily glow.
           </p>
@@ -256,7 +260,8 @@ export default function Home() {
           Your story <em>belongs here.</em>
         </h2>
         <p>
-          Good things start with an honest conversation. Join our growing community of skincare lovers across Pakistan.
+          Good things start with an honest conversation. Join our growing
+          community of skincare lovers across Pakistan.
         </p>
         <span className="quiet-badge">A new ritual. A new community.</span>
       </section>

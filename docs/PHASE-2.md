@@ -1,40 +1,37 @@
-# Phase 2 handoff
+# Current application architecture
 
-## Boundary
+The existing React/Vite storefront uses Firebase Authentication and Cloud Firestore. Firebase Hosting serves the built SPA with a catch-all rewrite to `index.html`. No deployment was performed during QA.
 
-The storefront is a Phase 1 preview. `business.preview` is true. Auth, contact and newsletter forms validate input and explicitly state that nothing was submitted. Checkout creates a local preview reference, never charges money, and does not transmit or save customer delivery details. Receipt bytes are not uploaded. Do not simply switch off the preview flag to launch.
+- `contexts/AuthContext.tsx` restores sessions and resolves the custom `admin` claim. Email addresses are never an authorization mechanism.
+- `contexts/SiteContext.tsx` subscribes to active products, SKU inventory, settings and approved reviews. Configured stores do not silently resurrect seed products.
+- `store.tsx` persists only the cart locally. Prices and availability come from the live catalog.
+- `services/orders.ts` creates authoritative orders transactionally, validates live SKU stock/prices, records the checkout throttle, and updates order status and inventory together.
+- `pages/OrderDetail.tsx` and customer/admin order lists subscribe to Firestore. A successful checkout requires a committed database write.
+- `services/products.ts` saves product/SKU changes atomically, keeps costs in admin-only `productCosts`, reserves slugs, archives every SKU and adjusts inventory transactionally.
 
-## Integration points
+Manual payment uses WhatsApp screenshots. Customers place the order first and then open the prefilled WhatsApp message. Staff verify or reject in the admin portal. Firebase Storage, receipt uploads and Cloud Functions are not required by this implementation.
 
-- `src/config/business.ts`: central WhatsApp, Instagram, currency, final origin, shipping and bank configuration.
-- `src/data/catalog.ts` and `src/types.ts`: extensible product/variant data, stock, prices, review types and order contracts. Catalog values are illustrative.
-- `src/services/contracts.ts`: catalog, auth, order, subscription and review repositories to implement.
-- `src/services/firebase.ts`: lazy modular initializer for Auth, Firestore and Storage; returns null without configuration.
-- `src/store.tsx`: guest cart and local preview state. No customer PII or receipt contents persist.
-- `src/lib/commerce.ts`: client display totals; never use these as authoritative server prices.
-- `firebase.json`: Hosting rewrites/cache headers. Firestore and Storage rules deny everything until Phase 2.
+## Local verification
 
-## Work sequence
+Use Node 22 and Java 21. The emulator helper supports the portable Java installation under `.audit/java`.
 
-1. Configure the owner's Firebase project, environment, authorized domains and deployment alias.
-2. Implement Auth, verified email/recovery, auth-state subscription, protected profile/orders and guest-cart merge.
-3. Seed approved catalog/stock. Limit public reads to published products; use trusted admin writes.
-4. Implement server checkout with schema validation, authoritative pricing/discounts, rate limits, idempotency and transactional stock reservation. Persist immutable line snapshots and validated addresses.
-5. Write and emulator-test owner-scoped order rules. Never let customers set fulfillment/payment status, totals or roles.
-6. Implement private receipt uploads with ownership checks, content/size validation, restricted reads and retention. Bank verification remains an audited admin action.
-7. Add fulfillment/admin tools and transactional communications. Confirm sender identities and consent.
-8. Connect newsletter/contact services with spam protection and unsubscribe. Enable moderated reviews tied to genuine completed purchases.
-9. Approve business values and legal copy; replace preview text as a coordinated launch change.
-10. Set domain, canonical URLs, absolute OG images, robots/sitemap, and real Product offers/review schema. Preview remains noindex.
-11. Test permissions, retries, duplicate orders, inventory conflicts, invalid uploads, payment transitions and deployed mobile checkout.
+```powershell
+npm.cmd run emulators
+npm.cmd run seed:local
+npm.cmd run build:qa
+npm.cmd run test:release
+npm.cmd run test:rules
+npm.cmd test
+npm.cmd run lint
+npm.cmd run build
+```
 
-## Owner information needed
+Run the emulator command in its own terminal. `.env.qa` points only to the demo emulator project; the release browser suite uses the built QA preview on port 5175. `.env.local` remains the owner's private configuration.
 
-- Confirmed prices, compare-at prices, colour stock and launch promotions.
-- Delivery regions, fees, free-delivery threshold, timelines and COD restrictions.
-- Bank/account details, payment instructions and verification procedure.
-- Returns, exchange, damage, hygiene and cancellation policies.
-- Firebase project, domain, legal contact details, support email and privacy decisions.
-- Final logo assets if replacing the current typographic wordmark; genuine reviews and demonstration video if available.
+## Production preparation
 
-Technical reference: [Vite guide](https://vite.dev/guide/) and [Firebase modular setup](https://firebase.google.com/docs/web/setup). No deployment, paid media generation, external messages or production database changes were performed.
+Confirm the owner's product prices/stock, shipping/returns, bank details, domain and Firebase project. Temporary defaults are not bank-account verification. Assign the admin custom claim using trusted credentials outside the repository, then sign out/in. The bootstrap script accepts an explicit key path or Application Default Credentials; it no longer searches the repository for private keys.
+
+Existing production catalog documents created by older code need an owner-reviewed migration: move any public cost fields into `productCosts`, remove them from public products/SKUs, reconcile all variant stock and active flags, and populate unique `productSlugs`. Do not blindly reseed production. Updated rules reject public cost fields.
+
+Publish Hosting, rules and indexes only after the release gate and explicit deployment authorization. Verify authorized domains, actual production custom claims and indexes, and repeat the purchase/admin smoke test on staging. Consult `QA-REPORT.md` for the audit verdict and outstanding limitations.

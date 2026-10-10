@@ -2,9 +2,9 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ShoppingBag, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "../store";
-import { useCatalog } from "../contexts/SiteContext";
-import { business, money } from "../config/business";
-import { totals } from "../lib/commerce";
+import { useCatalog, useSettings } from "../contexts/SiteContext";
+import { money } from "../config/business";
+
 import { Modal, Quantity, WhatsAppLink } from "./ui";
 
 export function CartLines() {
@@ -13,8 +13,9 @@ export function CartLines() {
   return (
     <div className="cart-lines">
       {cart.map((line) => {
-        const p = getProduct(line.productId)!;
-        const v = p?.variants.find((v) => v.id === line.variantId)!;
+        const p = getProduct(line.productId);
+        const v = p?.variants.find((v) => v.id === line.variantId);
+        if (!p || !v) return null;
         return (
           <article className="cart-line" key={`${p.id}-${v.id}`}>
             <Link to={`/product/${p.slug}`}>
@@ -27,13 +28,15 @@ export function CartLines() {
               <p>{v.name}</p>
               <Quantity
                 value={line.quantity}
-                max={v.stock}
+                max={Math.min(10, v.stock)}
                 label={`${v.name} quantity`}
                 onChange={(q) => update(p.id, v.id, q)}
               />
             </div>
             <div className="line-end">
-              <strong>{money(p.price * line.quantity)}</strong>
+              <strong>
+                {money((v.priceOverride ?? p.price) * line.quantity)}
+              </strong>
               <button
                 className="icon-button"
                 aria-label={`Remove ${v.name}`}
@@ -53,8 +56,8 @@ export function OrderSummary({
 }: {
   discountInput?: boolean;
 }) {
-  const { cart } = useStore();
-  const sums = totals(cart);
+  const { sums } = useStore();
+  const business = useSettings();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   return (
@@ -79,7 +82,9 @@ export function OrderSummary({
           className="discount"
           onSubmit={(e) => {
             e.preventDefault();
-            setError("Invalid or expired discount code. Please check your code and try again.");
+            setError(
+              "Invalid or expired discount code. Please check your code and try again.",
+            );
           }}
         >
           <label className="sr-only" htmlFor="discount">
@@ -103,13 +108,15 @@ export function OrderSummary({
         <strong>{money(sums.total)}</strong>
       </div>
       <p className="fine-print">
-        Complimentary shipping on orders over PKR 3,000. All taxes included.
+        Complimentary shipping from {money(business.shipping.freeAbove)}.
+        Delivery: {business.shipping.estimatedDays}.
       </p>
     </div>
   );
 }
 export function CartDrawer() {
-  const { drawer, setDrawer, cart } = useStore();
+  const { drawer, setDrawer, cart, sums } = useStore();
+  const business = useSettings();
   if (!drawer) return null;
   const count = cart.reduce((n, l) => n + l.quantity, 0);
   return (
@@ -122,16 +129,13 @@ export function CartDrawer() {
         <>
           <div className="delivery-progress">
             <p>
-              {Math.max(
-                0,
-                business.shipping.freeAbove - totals(cart).subtotal,
-              ) > 0
-                ? `${money(business.shipping.freeAbove - totals(cart).subtotal)} away from complimentary delivery`
+              {Math.max(0, business.shipping.freeAbove - sums.subtotal) > 0
+                ? `${money(business.shipping.freeAbove - sums.subtotal)} away from complimentary delivery`
                 : "A little extra care. Complimentary delivery."}
             </p>
             <progress
               max={business.shipping.freeAbove}
-              value={totals(cart).subtotal}
+              value={sums.subtotal}
               aria-label="Estimated free delivery progress"
             />
             <small>Illustrative delivery offer</small>

@@ -11,3 +11,8 @@ playwright-report/
 *-debug.log
 *firebase-adminsdk*.json
 *service-account*.json
+
+serviceAccountKey.json
+service-account.json
+firebase-key.json
+key.json

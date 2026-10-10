@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Search, ShieldAlert } from "lucide-react";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { firebase } from "../services/firebase";
 import { money } from "../config/business";
 import type { ShopOrder } from "../domain/models";
@@ -21,8 +28,10 @@ export function OrderTrackerModal({ onClose }: { onClose: () => void }) {
     setOrder(null);
 
     try {
-      if (!firebase?.db) {
-        setError("Order tracking is currently initializing. Please try again in a moment.");
+      if (!firebase?.auth.currentUser) {
+        setError(
+          "Please sign in to the account that placed this order to track it.",
+        );
         setLoading(false);
         return;
       }
@@ -40,16 +49,24 @@ export function OrderTrackerModal({ onClose }: { onClose: () => void }) {
         setOrder(snap.data() as ShopOrder);
       } else {
         // Query by phone number fallback
-        const q = query(collection(firebase.db, "orders"), where("customer.phone", "==", term));
+        const q = query(
+          collection(firebase.db, "orders"),
+          where("userId", "==", firebase.auth.currentUser.uid),
+          where("customer.phone", "==", term),
+        );
         const qSnap = await getDocs(q);
         if (!qSnap.empty) {
           setOrder(qSnap.docs[0].data() as ShopOrder);
         } else {
-          setError(`No order found matching "${term}". Please verify your Order ID (e.g. GS-1001) or mobile number.`);
+          setError(
+            `No order found matching "${term}". Please verify your Order ID (e.g. GS-1001) or mobile number.`,
+          );
         }
       }
     } catch {
-      setError("Could not retrieve order details. Please check your network connection.");
+      setError(
+        "This order could not be found for your account. Check the reference and sign-in account.",
+      );
     } finally {
       setLoading(false);
     }
@@ -83,8 +100,21 @@ export function OrderTrackerModal({ onClose }: { onClose: () => void }) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-          <h2 style={{ fontFamily: "Georgia, serif", fontSize: "1.35rem", color: "#302E2A" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "1.25rem",
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: "Georgia, serif",
+              fontSize: "1.35rem",
+              color: "#302E2A",
+            }}
+          >
             Track Your Skincare Order
           </h2>
           <button
@@ -102,7 +132,10 @@ export function OrderTrackerModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <form onSubmit={handleSearch} style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
+        <form
+          onSubmit={handleSearch}
+          style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}
+        >
           <input
             type="text"
             placeholder="Enter Order # (e.g. GS-1001) or Phone"
@@ -159,35 +192,90 @@ export function OrderTrackerModal({ onClose }: { onClose: () => void }) {
         )}
 
         {order && (
-          <div style={{ background: "#FFF", border: "1px solid #EFEAE3", borderRadius: "12px", padding: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-              <span style={{ fontWeight: 700, color: "#302E2A" }}>Order #{order.id}</span>
+          <div
+            style={{
+              background: "#FFF",
+              border: "1px solid #EFEAE3",
+              borderRadius: "12px",
+              padding: "1.25rem",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "0.75rem",
+              }}
+            >
+              <span style={{ fontWeight: 700, color: "#302E2A" }}>
+                Order #{order.id}
+              </span>
               <span
                 style={{
-                  background: order.paymentStatus === "verified" ? "#E8F5E9" : "#FFF3E0",
-                  color: order.paymentStatus === "verified" ? "#2E7D32" : "#E65100",
+                  background:
+                    order.paymentStatus === "verified" ? "#E8F5E9" : "#FFF3E0",
+                  color:
+                    order.paymentStatus === "verified" ? "#2E7D32" : "#E65100",
                   padding: "0.25rem 0.6rem",
                   borderRadius: "20px",
                   fontSize: "0.75rem",
                   fontWeight: 600,
                 }}
               >
-                {order.paymentStatus === "verified" ? "Payment Verified" : order.paymentStatus === "rejected" ? "Verification Action Required" : "Awaiting Verification"}
+                {order.paymentStatus === "verified"
+                  ? "Payment Verified"
+                  : order.paymentStatus === "rejected"
+                    ? "Verification Action Required"
+                    : "Awaiting Verification"}
               </span>
             </div>
 
-            <p style={{ fontSize: "0.875rem", color: "#685F57", marginBottom: "0.75rem" }}>
-              Customer: <strong>{order.customer.name}</strong> ({order.customer.city})
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#685F57",
+                marginBottom: "0.75rem",
+              }}
+            >
+              Customer: <strong>{order.customer.name}</strong> (
+              {order.customer.city})
             </p>
 
-            <div style={{ borderTop: "1px solid #EFEAE3", paddingTop: "0.75rem", marginTop: "0.75rem" }}>
-              <p style={{ fontSize: "0.85rem", color: "#685F57", display: "flex", justifyContent: "space-between" }}>
+            <div
+              style={{
+                borderTop: "1px solid #EFEAE3",
+                paddingTop: "0.75rem",
+                marginTop: "0.75rem",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: "0.85rem",
+                  color: "#685F57",
+                  display: "flex",
+                  justifyContent: "space-between",
+                }}
+              >
                 <span>Total Amount:</span>
-                <strong style={{ color: "#302E2A" }}>{money(order.total)}</strong>
+                <strong style={{ color: "#302E2A" }}>
+                  {money(order.total)}
+                </strong>
               </p>
-              <p style={{ fontSize: "0.85rem", color: "#685F57", display: "flex", justifyContent: "space-between", marginTop: "0.25rem" }}>
+              <p
+                style={{
+                  fontSize: "0.85rem",
+                  color: "#685F57",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: "0.25rem",
+                }}
+              >
                 <span>Delivery Method:</span>
-                <span>{order.paymentMethod === "cod" ? "Cash on Delivery" : "Manual Bank Transfer"}</span>
+                <span>
+                  {order.paymentMethod === "cod"
+                    ? "Cash on Delivery"
+                    : "Manual Bank Transfer"}
+                </span>
               </p>
             </div>
           </div>

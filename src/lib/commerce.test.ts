@@ -33,7 +33,7 @@ describe("guest cart integrity", () => {
         { productId: "bye-bye-makeup", variantId: "ivory", quantity: 1.9 },
       ]),
     ).toEqual([
-      { productId: "bye-bye-makeup", variantId: "blush", quantity: 20 },
+      { productId: "bye-bye-makeup", variantId: "blush", quantity: 10 },
       { productId: "bye-bye-makeup", variantId: "ivory", quantity: 1 },
     ]);
   });

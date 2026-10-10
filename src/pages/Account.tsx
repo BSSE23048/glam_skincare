@@ -23,7 +23,7 @@ import {
   ShoppingBag,
   Shield,
 } from "lucide-react";
-import { useStore } from "../store";
+
 import { useAuth } from "../contexts/AuthContext";
 import {
   login as firebaseLogin,
@@ -32,20 +32,30 @@ import {
   logout as firebaseLogout,
   updateUserProfile,
 } from "../services/auth";
+import { useSettings } from "../contexts/SiteContext";
 import { watchOrders } from "../services/orders";
 import { Empty, Eyebrow, PageHeading, WhatsAppLink } from "../components/ui";
-import { business, money, buildWhatsAppUrl, whatsappMessages } from "../config/business";
+import { money, buildWhatsAppUrl, whatsappMessages } from "../config/business";
 import type { ShopOrder } from "../domain/models";
 
-export function Auth({ initialMode }: { initialMode?: "login" | "register" | "reset" }) {
+export function Auth({
+  initialMode,
+}: {
+  initialMode?: "login" | "register" | "reset";
+}) {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const { user, admin, loading } = useAuth();
   const queryParams = new URLSearchParams(search);
-  const next = queryParams.get("next") || "/account";
+  const requestedNext = queryParams.get("next") || "/account";
+  const next =
+    requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+      ? requestedNext
+      : "/account";
 
   // Determine initial mode from props or URL path
-  const defaultMode = initialMode || (pathname === "/register" ? "register" : "login");
+  const defaultMode =
+    initialMode || (pathname === "/register" ? "register" : "login");
   const [mode, setMode] = useState<"login" | "register" | "reset">(defaultMode);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -82,27 +92,32 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
 
     const form = new FormData(e.currentTarget);
     const email = String(form.get("email") || "").trim();
-    const password = String(form.get("password") || "").trim();
+    const password = String(form.get("password") || "");
     const name = String(form.get("name") || "").trim();
     const phone = String(form.get("phone") || "").trim();
     const whatsapp = String(form.get("whatsapp") || "").trim();
 
     try {
       if (mode === "reset") {
-        if (!email) throw new Error("Please enter your registered email address.");
+        if (!email)
+          throw new Error("Please enter your registered email address.");
         await firebaseReset(email);
-        setNotice("A password recovery link has been sent to your email. Check your inbox.");
+        setNotice(
+          "A password recovery link has been sent to your email. Check your inbox.",
+        );
       } else if (mode === "register") {
         if (!name) throw new Error("Please enter your full name.");
-        if (password.length < 8) throw new Error("Password must be at least 8 characters long.");
+        if (password.length < 8)
+          throw new Error("Password must be at least 8 characters long.");
         await firebaseRegister(name, email, password, phone, whatsapp);
         setNotice("Account created successfully! Welcome to Glam Skincare.");
         navigate(next, { replace: true });
       } else {
-        if (!email || !password) throw new Error("Please enter your email and password.");
+        if (!email || !password)
+          throw new Error("Please enter your email and password.");
         const userObj = await firebaseLogin(email, password);
-        const token = await userObj.getIdTokenResult(true);
-        const isAdmin = token?.claims.admin === true || userObj.email === "glamskincarepk@gmail.com";
+        const token = await userObj.getIdTokenResult();
+        const isAdmin = token?.claims.admin === true;
         setNotice("Welcome back to Glam Skincare!");
         if (isAdmin) {
           navigate("/admin", { replace: true });
@@ -112,7 +127,10 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
         }
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Authentication failed. Please check your credentials.";
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Authentication failed. Please check your credentials.";
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -125,7 +143,8 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
         className="auth-grid-wrapper"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
           gap: "2rem",
           alignItems: "stretch",
           background: "#FFFFFF",
@@ -183,13 +202,23 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
             >
               Glow. Care. Confidence.
               <br />
-              <em style={{ color: "#EFDCD7", fontStyle: "italic" }}>All in one place.</em>
+              <em style={{ color: "#EFDCD7", fontStyle: "italic" }}>
+                All in one place.
+              </em>
             </h2>
           </div>
 
           <div style={{ position: "relative", zIndex: 1, marginTop: "2rem" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                }}
+              >
                 <div
                   style={{
                     background: "rgba(239, 220, 215, 0.15)",
@@ -201,7 +230,13 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                   <Package size={18} />
                 </div>
                 <div>
-                  <strong style={{ display: "block", fontSize: "0.9rem", color: "#FAF8F5" }}>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: "0.9rem",
+                      color: "#FAF8F5",
+                    }}
+                  >
                     Live Order & Payment Tracking
                   </strong>
                   <span style={{ fontSize: "0.8rem", color: "#B8B0A6" }}>
@@ -210,7 +245,13 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                 </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                }}
+              >
                 <div
                   style={{
                     background: "rgba(239, 220, 215, 0.15)",
@@ -222,14 +263,28 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                   <Sparkles size={18} />
                 </div>
                 <div>
-                  <strong style={{ display: "block", fontSize: "0.9rem", color: "#FAF8F5" }}>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: "0.9rem",
+                      color: "#FAF8F5",
+                    }}
+                  >
                     Express Saved Checkout
                   </strong>
-                  <span style={{ fontSize: "0.8rem", color: "#B8B0A6" }}>Pre-fill shipping address for instant orders</span>
+                  <span style={{ fontSize: "0.8rem", color: "#B8B0A6" }}>
+                    Pre-fill shipping address for instant orders
+                  </span>
                 </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                }}
+              >
                 <div
                   style={{
                     background: "rgba(239, 220, 215, 0.15)",
@@ -241,10 +296,18 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                   <ShieldCheck size={18} />
                 </div>
                 <div>
-                  <strong style={{ display: "block", fontSize: "0.9rem", color: "#FAF8F5" }}>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: "0.9rem",
+                      color: "#FAF8F5",
+                    }}
+                  >
                     Secure Customer Authentication
                   </strong>
-                  <span style={{ fontSize: "0.8rem", color: "#B8B0A6" }}>256-bit encrypted account protection</span>
+                  <span style={{ fontSize: "0.8rem", color: "#B8B0A6" }}>
+                    256-bit encrypted account protection
+                  </span>
                 </div>
               </div>
             </div>
@@ -288,7 +351,8 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                 border: "none",
                 background: mode === "login" ? "#302E2A" : "transparent",
                 color: mode === "login" ? "#FFFFFF" : "#685F57",
-                boxShadow: mode === "login" ? "0 2px 8px rgba(0,0,0,0.12)" : "none",
+                boxShadow:
+                  mode === "login" ? "0 2px 8px rgba(0,0,0,0.12)" : "none",
               }}
             >
               <LogIn size={16} />
@@ -317,7 +381,8 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                 border: "none",
                 background: mode === "register" ? "#302E2A" : "transparent",
                 color: mode === "register" ? "#FFFFFF" : "#685F57",
-                boxShadow: mode === "register" ? "0 2px 8px rgba(0,0,0,0.12)" : "none",
+                boxShadow:
+                  mode === "register" ? "0 2px 8px rgba(0,0,0,0.12)" : "none",
               }}
             >
               <UserPlus size={16} />
@@ -327,7 +392,14 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
 
           <div style={{ marginBottom: "1.25rem" }}>
             <Eyebrow>CUSTOMER PORTAL</Eyebrow>
-            <h1 style={{ fontSize: "1.75rem", fontFamily: "Georgia, serif", color: "#302E2A", margin: "0.25rem 0" }}>
+            <h1
+              style={{
+                fontSize: "1.75rem",
+                fontFamily: "Georgia, serif",
+                color: "#302E2A",
+                margin: "0.25rem 0",
+              }}
+            >
               {mode === "reset"
                 ? "Reset Your Password"
                 : mode === "register"
@@ -346,7 +418,15 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
           <form onSubmit={handleSubmit} key={mode}>
             {mode === "register" && (
               <label className="field" style={{ marginBottom: "1rem" }}>
-                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#302E2A" }}>Full Name *</span>
+                <span
+                  style={{
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "#302E2A",
+                  }}
+                >
+                  Full Name *
+                </span>
                 <div style={{ position: "relative" }}>
                   <input
                     name="name"
@@ -363,14 +443,28 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                   />
                   <UserRound
                     size={17}
-                    style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "#999" }}
+                    style={{
+                      position: "absolute",
+                      left: "0.85rem",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "#999",
+                    }}
                   />
                 </div>
               </label>
             )}
 
             <label className="field" style={{ marginBottom: "1rem" }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#302E2A" }}>Email Address *</span>
+              <span
+                style={{
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  color: "#302E2A",
+                }}
+              >
+                Email Address *
+              </span>
               <div style={{ position: "relative" }}>
                 <input
                   name="email"
@@ -388,15 +482,35 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                 />
                 <Mail
                   size={17}
-                  style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "#999" }}
+                  style={{
+                    position: "absolute",
+                    left: "0.85rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#999",
+                  }}
                 />
               </div>
             </label>
 
             {mode !== "reset" && (
               <label className="field" style={{ marginBottom: "1rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#302E2A" }}>Password *</span>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      color: "#302E2A",
+                    }}
+                  >
+                    Password *
+                  </span>
                   {mode === "login" && (
                     <button
                       className="text-link"
@@ -406,7 +520,13 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                         setError("");
                         setNotice("");
                       }}
-                      style={{ fontSize: "0.8rem", border: "none", color: "#8B635E", cursor: "pointer", background: "none" }}
+                      style={{
+                        fontSize: "0.8rem",
+                        border: "none",
+                        color: "#8B635E",
+                        cursor: "pointer",
+                        background: "none",
+                      }}
                     >
                       Forgot password?
                     </button>
@@ -417,7 +537,9 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                     name="password"
                     type={showPassword ? "text" : "password"}
                     minLength={8}
-                    autoComplete={mode === "register" ? "new-password" : "current-password"}
+                    autoComplete={
+                      mode === "register" ? "new-password" : "current-password"
+                    }
                     placeholder="••••••••"
                     required
                     style={{
@@ -430,7 +552,13 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                   />
                   <Lock
                     size={17}
-                    style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "#999" }}
+                    style={{
+                      position: "absolute",
+                      left: "0.85rem",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "#999",
+                    }}
                   />
                   <button
                     type="button"
@@ -450,7 +578,15 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                     {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                   </button>
                 </div>
-                <span className="fine-print" style={{ fontSize: "0.75rem", color: "#888", display: "block", marginTop: "0.25rem" }}>
+                <span
+                  className="fine-print"
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "#888",
+                    display: "block",
+                    marginTop: "0.25rem",
+                  }}
+                >
                   Minimum 8 characters
                 </span>
               </label>
@@ -459,7 +595,15 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
             {mode === "register" && (
               <>
                 <label className="field" style={{ marginBottom: "1rem" }}>
-                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#302E2A" }}>Mobile Phone (Optional)</span>
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      color: "#302E2A",
+                    }}
+                  >
+                    Mobile Phone (Optional)
+                  </span>
                   <div style={{ position: "relative" }}>
                     <input
                       name="phone"
@@ -475,13 +619,27 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                     />
                     <Phone
                       size={17}
-                      style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "#999" }}
+                      style={{
+                        position: "absolute",
+                        left: "0.85rem",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "#999",
+                      }}
                     />
                   </div>
                 </label>
 
                 <label className="field" style={{ marginBottom: "1rem" }}>
-                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#302E2A" }}>WhatsApp Number (Optional)</span>
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      color: "#302E2A",
+                    }}
+                  >
+                    WhatsApp Number (Optional)
+                  </span>
                   <div style={{ position: "relative" }}>
                     <input
                       name="whatsapp"
@@ -497,7 +655,13 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                     />
                     <MessageCircle
                       size={17}
-                      style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "#999" }}
+                      style={{
+                        position: "absolute",
+                        left: "0.85rem",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "#999",
+                      }}
                     />
                   </div>
                 </label>
@@ -588,7 +752,13 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
           </form>
 
           {/* Footer Auth Navigation Links */}
-          <div style={{ marginTop: "1.75rem", paddingTop: "1.25rem", borderTop: "1px solid #EFEAE3" }}>
+          <div
+            style={{
+              marginTop: "1.75rem",
+              paddingTop: "1.25rem",
+              borderTop: "1px solid #EFEAE3",
+            }}
+          >
             {mode === "reset" ? (
               <button
                 type="button"
@@ -598,14 +768,28 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                   setError("");
                   setNotice("");
                 }}
-                style={{ background: "none", border: "none", cursor: "pointer" }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
               >
                 ← Back to Sign In
               </button>
             ) : (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "0.75rem",
+                }}
+              >
                 <span style={{ fontSize: "0.875rem", color: "#685F57" }}>
-                  {mode === "register" ? "Already have an account?" : "New to Glam Skincare?"}
+                  {mode === "register"
+                    ? "Already have an account?"
+                    : "New to Glam Skincare?"}
                 </span>
                 <button
                   type="button"
@@ -624,13 +808,24 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
                     textDecoration: "underline",
                   }}
                 >
-                  {mode === "register" ? "Sign In / Log In" : "Create Account / Sign Up"}
+                  {mode === "register"
+                    ? "Sign In / Log In"
+                    : "Create Account / Sign Up"}
                 </button>
               </div>
             )}
 
             <div style={{ marginTop: "1rem", textAlign: "center" }}>
-              <Link to="/shop" style={{ fontSize: "0.85rem", color: "#685F57", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+              <Link
+                to="/shop"
+                style={{
+                  fontSize: "0.85rem",
+                  color: "#685F57",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                }}
+              >
                 Continue shopping as guest <ArrowRight size={14} />
               </Link>
             </div>
@@ -642,6 +837,7 @@ export function Auth({ initialMode }: { initialMode?: "login" | "register" | "re
 }
 
 export function Account() {
+  const business = useSettings();
   const { user, profile, admin, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -651,12 +847,16 @@ export function Account() {
     }
   }, [user, admin, loading, navigate]);
 
-  const [activeTab, setActiveTab] = useState<"profile" | "orders" | "address">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "orders" | "address">(
+    "profile",
+  );
 
   const [editing, setEditing] = useState(false);
   const [phone, setPhone] = useState(profile?.phone || "");
   const [whatsapp, setWhatsapp] = useState(profile?.whatsapp || "");
-  const [name, setName] = useState(profile?.displayName || user?.displayName || "");
+  const [name, setName] = useState(
+    profile?.displayName || user?.displayName || "",
+  );
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
 
@@ -682,7 +882,7 @@ export function Account() {
         setLiveOrders(orders);
         setOrdersLoading(false);
       },
-      () => setOrdersLoading(false)
+      () => setOrdersLoading(false),
     );
     return () => unsub();
   }, [user]);
@@ -719,7 +919,10 @@ export function Account() {
   if (loading) {
     return (
       <div className="empty container page-space" role="status">
-        <Sparkles size={24} style={{ marginBottom: "1rem", color: "#8B635E" }} />
+        <Sparkles
+          size={24}
+          style={{ marginBottom: "1rem", color: "#8B635E" }}
+        />
         <p>Restoring your account session…</p>
       </div>
     );
@@ -735,7 +938,14 @@ export function Account() {
     return <Navigate to="/admin" replace />;
   }
 
-  const initialLetter = (profile?.displayName || user?.displayName || user?.email || "G").charAt(0).toUpperCase();
+  const initialLetter = (
+    profile?.displayName ||
+    user?.displayName ||
+    user?.email ||
+    "G"
+  )
+    .charAt(0)
+    .toUpperCase();
 
   return (
     <section className="container page-space">
@@ -775,9 +985,18 @@ export function Account() {
             {initialLetter}
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <h1 style={{ fontSize: "1.5rem", fontFamily: "Georgia, serif", color: "#FAF8F5" }}>
-                Hello, {profile?.displayName || user?.displayName || "Valued Customer"}
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            >
+              <h1
+                style={{
+                  fontSize: "1.5rem",
+                  fontFamily: "Georgia, serif",
+                  color: "#FAF8F5",
+                }}
+              >
+                Hello,{" "}
+                {profile?.displayName || user?.displayName || "Valued Customer"}
               </h1>
               {admin && (
                 <span
@@ -796,13 +1015,26 @@ export function Account() {
                 </span>
               )}
             </div>
-            <p style={{ color: "#B8B0A6", fontSize: "0.875rem", marginTop: "0.25rem" }}>
+            <p
+              style={{
+                color: "#B8B0A6",
+                fontSize: "0.875rem",
+                marginTop: "0.25rem",
+              }}
+            >
               {user.email} · Member of Glam Skincare Rituals
             </p>
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            flexWrap: "wrap",
+          }}
+        >
           {admin && (
             <Link
               to="/admin"
@@ -883,7 +1115,10 @@ export function Account() {
             fontWeight: 600,
             fontSize: "0.95rem",
             color: activeTab === "profile" ? "#302E2A" : "#685F57",
-            borderBottom: activeTab === "profile" ? "2px solid #302E2A" : "2px solid transparent",
+            borderBottom:
+              activeTab === "profile"
+                ? "2px solid #302E2A"
+                : "2px solid transparent",
             background: "none",
             borderLeft: "none",
             borderRight: "none",
@@ -905,7 +1140,10 @@ export function Account() {
             fontWeight: 600,
             fontSize: "0.95rem",
             color: activeTab === "orders" ? "#302E2A" : "#685F57",
-            borderBottom: activeTab === "orders" ? "2px solid #302E2A" : "2px solid transparent",
+            borderBottom:
+              activeTab === "orders"
+                ? "2px solid #302E2A"
+                : "2px solid transparent",
             background: "none",
             borderLeft: "none",
             borderRight: "none",
@@ -927,7 +1165,10 @@ export function Account() {
             fontWeight: 600,
             fontSize: "0.95rem",
             color: activeTab === "address" ? "#302E2A" : "#685F57",
-            borderBottom: activeTab === "address" ? "2px solid #302E2A" : "2px solid transparent",
+            borderBottom:
+              activeTab === "address"
+                ? "2px solid #302E2A"
+                : "2px solid transparent",
             background: "none",
             borderLeft: "none",
             borderRight: "none",
@@ -944,7 +1185,15 @@ export function Account() {
 
       {/* Tab 1: Profile & Personal Details */}
       {activeTab === "profile" && (
-        <div className="account-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem" }}>
+        <div
+          className="account-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
+            gap: "1.5rem",
+          }}
+        >
           <div
             className="account-card"
             style={{
@@ -954,8 +1203,23 @@ export function Account() {
               padding: "1.75rem",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-              <h2 style={{ fontSize: "1.25rem", fontFamily: "Georgia, serif", color: "#302E2A" }}>Personal Information</h2>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "1.25rem",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "1.25rem",
+                  fontFamily: "Georgia, serif",
+                  color: "#302E2A",
+                }}
+              >
+                Personal Information
+              </h2>
               {!editing && (
                 <button
                   type="button"
@@ -971,71 +1235,173 @@ export function Account() {
             {editing ? (
               <form onSubmit={handleSaveProfile}>
                 <label className="field" style={{ marginBottom: "1rem" }}>
-                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#302E2A" }}>Full Name</span>
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      color: "#302E2A",
+                    }}
+                  >
+                    Full Name
+                  </span>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    style={{ width: "100%", padding: "0.7rem", borderRadius: "6px", border: "1px solid #E2DCD5" }}
+                    style={{
+                      width: "100%",
+                      padding: "0.7rem",
+                      borderRadius: "6px",
+                      border: "1px solid #E2DCD5",
+                    }}
                   />
                 </label>
 
                 <label className="field" style={{ marginBottom: "1rem" }}>
-                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#302E2A" }}>Mobile Phone Number</span>
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      color: "#302E2A",
+                    }}
+                  >
+                    Mobile Phone Number
+                  </span>
                   <input
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="e.g. 0300 1234567"
-                    style={{ width: "100%", padding: "0.7rem", borderRadius: "6px", border: "1px solid #E2DCD5" }}
+                    style={{
+                      width: "100%",
+                      padding: "0.7rem",
+                      borderRadius: "6px",
+                      border: "1px solid #E2DCD5",
+                    }}
                   />
                 </label>
 
                 <label className="field" style={{ marginBottom: "1.25rem" }}>
-                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#302E2A" }}>WhatsApp Number</span>
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      color: "#302E2A",
+                    }}
+                  >
+                    WhatsApp Number
+                  </span>
                   <input
                     value={whatsapp}
                     onChange={(e) => setWhatsapp(e.target.value)}
                     placeholder="e.g. 0322 4729343"
-                    style={{ width: "100%", padding: "0.7rem", borderRadius: "6px", border: "1px solid #E2DCD5" }}
+                    style={{
+                      width: "100%",
+                      padding: "0.7rem",
+                      borderRadius: "6px",
+                      border: "1px solid #E2DCD5",
+                    }}
                   />
                 </label>
 
                 <div style={{ display: "flex", gap: "0.75rem" }}>
-                  <button type="submit" className="button small" disabled={saving} style={{ background: "#302E2A", color: "#FFF" }}>
+                  <button
+                    type="submit"
+                    className="button small"
+                    disabled={saving}
+                    style={{ background: "#302E2A", color: "#FFF" }}
+                  >
                     {saving ? "Saving..." : "Save Profile"}
                   </button>
-                  <button type="button" className="button secondary small" onClick={() => setEditing(false)}>
+                  <button
+                    type="button"
+                    className="button secondary small"
+                    onClick={() => setEditing(false)}
+                  >
                     Cancel
                   </button>
                 </div>
               </form>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.85rem",
+                }}
+              >
                 <div>
-                  <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#888", fontWeight: 700, letterSpacing: "1px" }}>
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      color: "#888",
+                      fontWeight: 700,
+                      letterSpacing: "1px",
+                    }}
+                  >
                     Full Name
                   </span>
-                  <p style={{ fontSize: "1rem", fontWeight: 600, color: "#302E2A" }}>
+                  <p
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      color: "#302E2A",
+                    }}
+                  >
                     {profile?.displayName || user?.displayName || "Not set"}
                   </p>
                 </div>
 
                 <div>
-                  <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#888", fontWeight: 700, letterSpacing: "1px" }}>
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      color: "#888",
+                      fontWeight: 700,
+                      letterSpacing: "1px",
+                    }}
+                  >
                     Email Address
                   </span>
-                  <p style={{ fontSize: "1rem", fontWeight: 600, color: "#302E2A" }}>{user.email}</p>
+                  <p
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      color: "#302E2A",
+                    }}
+                  >
+                    {user.email}
+                  </p>
                 </div>
 
                 <div>
-                  <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#888", fontWeight: 700, letterSpacing: "1px" }}>
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      color: "#888",
+                      fontWeight: 700,
+                      letterSpacing: "1px",
+                    }}
+                  >
                     Mobile Phone
                   </span>
-                  <p style={{ fontSize: "0.95rem", color: "#302E2A" }}>{profile?.phone || "Not set"}</p>
+                  <p style={{ fontSize: "0.95rem", color: "#302E2A" }}>
+                    {profile?.phone || "Not set"}
+                  </p>
                 </div>
 
                 <div>
-                  <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "#888", fontWeight: 700, letterSpacing: "1px" }}>
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      textTransform: "uppercase",
+                      color: "#888",
+                      fontWeight: 700,
+                      letterSpacing: "1px",
+                    }}
+                  >
                     WhatsApp Number
                   </span>
                   <p style={{ fontSize: "0.95rem", color: "#302E2A" }}>
@@ -1075,26 +1441,61 @@ export function Account() {
               padding: "1.75rem",
             }}
           >
-            <h2 style={{ fontSize: "1.25rem", fontFamily: "Georgia, serif", color: "#302E2A", marginBottom: "0.75rem" }}>
+            <h2
+              style={{
+                fontSize: "1.25rem",
+                fontFamily: "Georgia, serif",
+                color: "#302E2A",
+                marginBottom: "0.75rem",
+              }}
+            >
               Account Security & Privileges
             </h2>
-            <p style={{ fontSize: "0.875rem", color: "#685F57", marginBottom: "1.25rem" }}>
-              Your account is protected with bank-grade cloud infrastructure. Passwords and identity credentials are stored with 256-bit SSL encryption.
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#685F57",
+                marginBottom: "1.25rem",
+              }}
+            >
+              Your account is protected with bank-grade cloud infrastructure.
+              Passwords and identity credentials are stored with 256-bit SSL
+              encryption.
             </p>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+              }}
+            >
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}
+              >
                 <ShieldCheck size={18} style={{ color: "#2E7D32" }} />
-                <span style={{ fontSize: "0.875rem", color: "#302E2A" }}>Verified Account Authentication</span>
+                <span style={{ fontSize: "0.875rem", color: "#302E2A" }}>
+                  Verified Account Authentication
+                </span>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}
+              >
                 <Lock size={18} style={{ color: "#1565C0" }} />
-                <span style={{ fontSize: "0.875rem", color: "#302E2A" }}>Role: {admin ? "Store Administrator" : "Customer"}</span>
+                <span style={{ fontSize: "0.875rem", color: "#302E2A" }}>
+                  Role: {admin ? "Store Administrator" : "Customer"}
+                </span>
               </div>
             </div>
 
-            <div style={{ marginTop: "2rem", paddingTop: "1rem", borderTop: "1px solid #EFEAE3" }}>
+            <div
+              style={{
+                marginTop: "2rem",
+                paddingTop: "1rem",
+                borderTop: "1px solid #EFEAE3",
+              }}
+            >
               <button
                 onClick={handleSignOut}
                 className="button secondary"
@@ -1117,13 +1518,41 @@ export function Account() {
 
       {/* Tab 2: Orders & Tracking */}
       {activeTab === "orders" && (
-        <div style={{ background: "#FFFFFF", border: "1px solid #EFEAE3", borderRadius: "12px", padding: "1.75rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+        <div
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid #EFEAE3",
+            borderRadius: "12px",
+            padding: "1.75rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "1.5rem",
+            }}
+          >
             <div>
-              <h2 style={{ fontSize: "1.25rem", fontFamily: "Georgia, serif", color: "#302E2A" }}>Recent Orders & History</h2>
-              <p style={{ fontSize: "0.875rem", color: "#685F57" }}>Track purchases and payment verification status in real time.</p>
+              <h2
+                style={{
+                  fontSize: "1.25rem",
+                  fontFamily: "Georgia, serif",
+                  color: "#302E2A",
+                }}
+              >
+                Recent Orders & History
+              </h2>
+              <p style={{ fontSize: "0.875rem", color: "#685F57" }}>
+                Track purchases and payment verification status in real time.
+              </p>
             </div>
-            <Link to="/account/orders" className="button secondary small" style={{ fontSize: "0.85rem" }}>
+            <Link
+              to="/account/orders"
+              className="button secondary small"
+              style={{ fontSize: "0.85rem" }}
+            >
               Full Orders View <ArrowRight size={15} />
             </Link>
           </div>
@@ -1133,19 +1562,25 @@ export function Account() {
               Loading your orders…
             </div>
           ) : liveOrders.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+            >
               {liveOrders.map((order) => {
                 const isAwaitingVerification =
-                  order.paymentMethod === "manual_online_payment" && order.paymentStatus === "awaiting_verification";
+                  order.paymentMethod === "manual_online_payment" &&
+                  order.paymentStatus === "awaiting_verification";
                 const isVerified = order.paymentStatus === "verified";
                 const isRejected = order.paymentStatus === "rejected";
 
                 const whatsappMessage = whatsappMessages.paymentVerification(
                   order.orderNumber,
                   money(order.total),
-                  order.customer?.name || user?.displayName || "Customer"
+                  order.customer?.name || user?.displayName || "Customer",
                 );
-                const waUrl = buildWhatsAppUrl(whatsappMessage, business.whatsapp);
+                const waUrl = buildWhatsAppUrl(
+                  whatsappMessage,
+                  business.whatsapp,
+                );
 
                 return (
                   <div
@@ -1157,12 +1592,32 @@ export function Account() {
                       background: "#FAF8F5",
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "0.5rem",
+                      }}
+                    >
                       <div>
-                        <strong style={{ fontSize: "1.05rem", color: "#302E2A" }}>Order #{order.orderNumber}</strong>
-                        <div style={{ fontSize: "0.8rem", color: "#888", marginTop: "0.15rem" }}>
+                        <strong
+                          style={{ fontSize: "1.05rem", color: "#302E2A" }}
+                        >
+                          Order #{order.orderNumber}
+                        </strong>
+                        <div
+                          style={{
+                            fontSize: "0.8rem",
+                            color: "#888",
+                            marginTop: "0.15rem",
+                          }}
+                        >
                           {order.createdAt?.seconds
-                            ? new Date(order.createdAt.seconds * 1000).toLocaleDateString("en-PK", {
+                            ? new Date(
+                                order.createdAt.seconds * 1000,
+                              ).toLocaleDateString("en-PK", {
                                 day: "numeric",
                                 month: "short",
                                 year: "numeric",
@@ -1170,10 +1625,19 @@ export function Account() {
                             : "Just now"}
                         </div>
                       </div>
-                      <strong style={{ fontSize: "1.1rem", color: "#302E2A" }}>{money(order.total)}</strong>
+                      <strong style={{ fontSize: "1.1rem", color: "#302E2A" }}>
+                        {money(order.total)}
+                      </strong>
                     </div>
 
-                    <div style={{ margin: "0.75rem 0", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <div
+                      style={{
+                        margin: "0.75rem 0",
+                        display: "flex",
+                        gap: "0.5rem",
+                        flexWrap: "wrap",
+                      }}
+                    >
                       {isAwaitingVerification && (
                         <span
                           style={{
@@ -1251,7 +1715,8 @@ export function Account() {
                             borderRadius: "6px",
                           }}
                         >
-                          <MessageCircle size={16} /> Send Screenshot on WhatsApp
+                          <MessageCircle size={16} /> Send Screenshot on
+                          WhatsApp
                         </a>
                       </div>
                     )}
@@ -1260,19 +1725,43 @@ export function Account() {
               })}
             </div>
           ) : (
-            <Empty title="No orders placed yet" text="When you purchase products, your live tracking and payment details will appear here." />
+            <Empty
+              title="No orders placed yet"
+              text="When you purchase products, your live tracking and payment details will appear here."
+            />
           )}
         </div>
       )}
 
       {/* Tab 3: Shipping Details */}
       {activeTab === "address" && (
-        <div style={{ background: "#FFFFFF", border: "1px solid #EFEAE3", borderRadius: "12px", padding: "1.75rem" }}>
-          <h2 style={{ fontSize: "1.25rem", fontFamily: "Georgia, serif", color: "#302E2A", marginBottom: "0.5rem" }}>
+        <div
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid #EFEAE3",
+            borderRadius: "12px",
+            padding: "1.75rem",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "1.25rem",
+              fontFamily: "Georgia, serif",
+              color: "#302E2A",
+              marginBottom: "0.5rem",
+            }}
+          >
             Saved Shipping Address
           </h2>
-          <p style={{ fontSize: "0.875rem", color: "#685F57", marginBottom: "1.5rem" }}>
-            Manage your default delivery location in Pakistan for automatic checkout auto-fill.
+          <p
+            style={{
+              fontSize: "0.875rem",
+              color: "#685F57",
+              marginBottom: "1.5rem",
+            }}
+          >
+            Manage your default delivery location in Pakistan for automatic
+            checkout auto-fill.
           </p>
 
           <div
@@ -1288,9 +1777,18 @@ export function Account() {
           >
             <MapPin size={24} style={{ color: "#8B635E" }} />
             <div>
-              <strong style={{ display: "block", fontSize: "0.95rem", color: "#302E2A" }}>Default Shipping Profile</strong>
+              <strong
+                style={{
+                  display: "block",
+                  fontSize: "0.95rem",
+                  color: "#302E2A",
+                }}
+              >
+                Default Shipping Profile
+              </strong>
               <span style={{ fontSize: "0.85rem", color: "#685F57" }}>
-                {profile?.displayName || user.displayName || "Customer"} · {profile?.phone || "No phone set"}
+                {profile?.displayName || user.displayName || "Customer"} ·{" "}
+                {profile?.phone || "No phone set"}
               </span>
             </div>
           </div>
@@ -1307,169 +1805,61 @@ export function Account() {
 }
 
 export function Orders() {
-  const { user, admin, loading: authLoading } = useAuth();
-
-  if (!authLoading && user && admin) {
-    return <Navigate to="/admin" replace />;
-  }
-
-  const { orders: localOrders, clearOrders } = useStore();
-  const [liveOrders, setLiveOrders] = useState<ShopOrder[]>([]);
-  const [loading, setLoading] = useState(Boolean(user));
-
+  const { user, admin } = useAuth();
+  const [orders, setOrders] = useState<ShopOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   useEffect(() => {
+    setOrders([]);
     if (!user) {
       setLoading(false);
       return;
     }
-    const unsub = watchOrders(
+    return watchOrders(
       user.uid,
-      (orders) => {
-        setLiveOrders(orders);
+      (data) => {
+        setOrders(data);
         setLoading(false);
       },
-      () => setLoading(false)
+      (err) => {
+        setError(err.message);
+        setLoading(false);
+      },
     );
-    return () => unsub();
   }, [user]);
-
+  if (admin) return <Navigate to="/admin/orders" replace />;
   return (
     <section className="container narrow page-space">
       <PageHeading eyebrow="YOUR GLAM JOURNEY" title="Your orders.">
-        Track your recent purchases and check your payment verification status.
+        Track your purchases and payment verification status.
       </PageHeading>
-
+      {error && <p role="alert">Orders could not load: {error}</p>}
       {loading ? (
-        <div className="empty" role="status">
-          Loading your orders…
-        </div>
-      ) : liveOrders.length > 0 ? (
+        <p role="status">Loading orders?</p>
+      ) : orders.length ? (
         <div className="orders-list">
-          {liveOrders.map((order) => {
-            const isAwaitingVerification =
-              order.paymentMethod === "manual_online_payment" && order.paymentStatus === "awaiting_verification";
-            const isVerified = order.paymentStatus === "verified";
-            const isRejected = order.paymentStatus === "rejected";
-
-            const whatsappMessage = whatsappMessages.paymentVerification(
-              order.orderNumber,
-              money(order.total),
-              order.customer?.name || "Customer"
-            );
-            const waUrl = buildWhatsAppUrl(whatsappMessage, business.whatsapp);
-
-            return (
-              <div
-                key={order.id}
-                style={{
-                  background: "#FFFFFF",
-                  border: "1px solid #EFEAE3",
-                  borderRadius: "12px",
-                  padding: "1.25rem",
-                  marginBottom: "1rem",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                  <div>
-                    <strong style={{ fontSize: "1.1rem" }}>Order #{order.orderNumber}</strong>
-                    <div style={{ fontSize: "0.85rem", color: "#666" }}>
-                      {order.createdAt?.seconds
-                        ? new Date(order.createdAt.seconds * 1000).toLocaleDateString()
-                        : "Just now"}
-                    </div>
-                  </div>
-                  <strong style={{ fontSize: "1.1rem" }}>{money(order.total)}</strong>
-                </div>
-
-                <div style={{ margin: "0.5rem 0" }}>
-                  {isAwaitingVerification && (
-                    <span
-                      className="quiet-badge warning"
-                      style={{ background: "#FFF3E0", color: "#E65100", padding: "0.25rem 0.6rem", borderRadius: "4px", fontSize: "0.85rem" }}
-                    >
-                      PAYMENT VERIFICATION PENDING
-                    </span>
-                  )}
-                  {isVerified && (
-                    <span
-                      className="quiet-badge success"
-                      style={{ background: "#E8F5E9", color: "#2E7D32", padding: "0.25rem 0.6rem", borderRadius: "4px", fontSize: "0.85rem" }}
-                    >
-                      PAYMENT VERIFIED
-                    </span>
-                  )}
-                  {isRejected && (
-                    <span
-                      className="quiet-badge danger"
-                      style={{ background: "#FFEBEE", color: "#C62828", padding: "0.25rem 0.6rem", borderRadius: "4px", fontSize: "0.85rem" }}
-                    >
-                      PAYMENT COULD NOT BE VERIFIED
-                    </span>
-                  )}
-                  {order.paymentMethod === "cod" && (
-                    <span
-                      className="quiet-badge info"
-                      style={{ background: "#E3F2FD", color: "#1565C0", padding: "0.25rem 0.6rem", borderRadius: "4px", fontSize: "0.85rem" }}
-                    >
-                      CASH ON DELIVERY ({order.orderStatus.toUpperCase()})
-                    </span>
-                  )}
-                </div>
-
-                {isRejected && order.rejectionReason && (
-                  <p style={{ color: "#C62828", fontSize: "0.875rem", marginTop: "0.5rem" }}>
-                    <strong>Reason:</strong> {order.rejectionReason}
-                  </p>
-                )}
-
-                {isAwaitingVerification && (
-                  <div style={{ marginTop: "0.75rem" }}>
-                    <a
-                      href={waUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="button small"
-                      style={{
-                        background: "#25D366",
-                        color: "#ffffff",
-                        borderColor: "#25D366",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "0.4rem",
-                      }}
-                    >
-                      <MessageCircle size={16} />
-                      SEND / RESEND SCREENSHOT ON WHATSAPP
-                    </a>
-                  </div>
-                )}
+          {orders.map((order) => (
+            <Link to={`/account/orders/${order.id}`} key={order.id}>
+              <Package />
+              <div>
+                <strong>{order.orderNumber}</strong>
+                <span>
+                  {order.orderStatus.replaceAll("_", " ")} ?{" "}
+                  {order.paymentStatus.replaceAll("_", " ")}
+                </span>
               </div>
-            );
-          })}
+              <strong>{money(order.total)}</strong>
+              <ArrowRight size={18} />
+            </Link>
+          ))}
         </div>
-      ) : localOrders.length > 0 ? (
-        <>
-          <div className="orders-list">
-            {localOrders.map((order) => (
-              <Link key={order.id} to={`/account/orders/${order.id}`}>
-                <Package size={26} />
-                <div>
-                  <strong>{order.id}</strong>
-                  <span>
-                    {new Date(order.createdAt).toLocaleDateString()} · {order.status}
-                  </span>
-                </div>
-                <strong>{money(order.total)}</strong>
-                <ArrowRight size={18} />
-              </Link>
-            ))}
-          </div>
-          <button className="text-link" onClick={clearOrders} style={{ marginTop: "1rem" }}>
-            Clear local saved previews
-          </button>
-        </>
       ) : (
-        <Empty title="Your story is just beginning." text="No orders yet. Explore the essentials and try our checkout." />
+        !error && (
+          <Empty
+            title="No orders placed yet"
+            text="Your orders will appear here once checkout is complete."
+          />
+        )
       )}
     </section>
   );

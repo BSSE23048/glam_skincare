@@ -1,10 +1,10 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
-import { onIdTokenChanged, type User } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { Navigate, useLocation } from 'react-router-dom';
-import { firebase } from '../services/firebase';
-import type { Profile } from '../domain/models';
+import { createContext, useContext, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { onIdTokenChanged, type User } from "firebase/auth";
+import { doc, onSnapshot } from "firebase/firestore";
+import { Navigate, useLocation } from "react-router-dom";
+import { firebase } from "../services/firebase";
+import type { Profile } from "../domain/models";
 
 interface AuthState {
   user: User | null;
@@ -19,7 +19,7 @@ const Context = createContext<AuthState>({
   profile: null,
   admin: false,
   loading: false,
-  error: '',
+  error: "",
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile: null,
     admin: false,
     loading: Boolean(firebase),
-    error: '',
+    error: "",
   });
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let sequence = 0;
     let profileUnsub: (() => void) | null = null;
 
-    const unsubscribe = onIdTokenChanged(firebase.auth, async user => {
+    const unsubscribe = onIdTokenChanged(firebase.auth, async (user) => {
       const request = ++sequence;
       if (profileUnsub) {
         profileUnsub();
@@ -45,29 +45,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!user) {
         if (request === sequence) {
-          setState({ user: null, profile: null, admin: false, loading: false, error: '' });
+          setState({
+            user: null,
+            profile: null,
+            admin: false,
+            loading: false,
+            error: "",
+          });
         }
         return;
       }
 
       try {
-        // Force refresh ID token to get latest custom claims (admin: true)
-        const token = await user.getIdTokenResult(true);
-        const isAdmin = token?.claims.admin === true || user.email === "glamskincarepk@gmail.com";
+        // Read the current token. Forcing a refresh here re-enters onIdTokenChanged.
+        const token = await user.getIdTokenResult();
+        if (request !== sequence) return;
+        const isAdmin = token?.claims.admin === true;
+        setState({
+          user,
+          profile: null,
+          admin: isAdmin,
+          loading: false,
+          error: "",
+        });
 
         profileUnsub = onSnapshot(
           doc(firebase!.db, "users", user.uid),
           (docSnap) => {
             if (request === sequence) {
-              const profile = docSnap.exists() ? (docSnap.data() as Profile) : null;
-              setState({ user, profile, admin: isAdmin, loading: false, error: "" });
+              const profile = docSnap.exists()
+                ? (docSnap.data() as Profile)
+                : null;
+              setState({
+                user,
+                profile,
+                admin: isAdmin,
+                loading: false,
+                error: "",
+              });
             }
           },
           () => {
             if (request === sequence) {
-              setState({ user, profile: null, admin: isAdmin, loading: false, error: "" });
+              setState({
+                user,
+                profile: null,
+                admin: isAdmin,
+                loading: false,
+                error: "",
+              });
             }
-          }
+          },
         );
       } catch {
         if (request === sequence) {
@@ -94,7 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export const useAuth = () => useContext(Context);
 
-export function RequireAuth({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
+export function RequireAuth({
+  children,
+  admin = false,
+}: {
+  children: ReactNode;
+  admin?: boolean;
+}) {
   const session = useAuth();
   const location = useLocation();
 
@@ -112,10 +146,19 @@ export function RequireAuth({ children, admin = false }: { children: ReactNode; 
         }}
       >
         <div style={{ textAlign: "center" }}>
-          <h2 style={{ fontFamily: "Georgia, serif", fontSize: "1.5rem", color: "#EFDCD7", marginBottom: "0.5rem" }}>
+          <h2
+            style={{
+              fontFamily: "Georgia, serif",
+              fontSize: "1.5rem",
+              color: "#EFDCD7",
+              marginBottom: "0.5rem",
+            }}
+          >
             Glam Skincare Executive Portal
           </h2>
-          <p style={{ color: "#B8B0A6", fontSize: "0.9rem" }}>Restoring administrative session…</p>
+          <p style={{ color: "#B8B0A6", fontSize: "0.9rem" }}>
+            Restoring administrative session…
+          </p>
         </div>
       </div>
     );
@@ -123,11 +166,21 @@ export function RequireAuth({ children, admin = false }: { children: ReactNode; 
 
   if (!firebase) {
     // Graceful fallback for unconfigured dev environment
-    return <>{children}</>;
+    return (
+      <div className="empty">
+        <h1>Store connection unavailable.</h1>
+        <p>Account services are not configured. Please contact the store.</p>
+      </div>
+    );
   }
 
   if (!session.user) {
-    return <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />;
+    return (
+      <Navigate
+        to={`/login?next=${encodeURIComponent(location.pathname)}`}
+        replace
+      />
+    );
   }
 
   if (admin && !session.admin) {
@@ -146,13 +199,37 @@ export function RequireAuth({ children, admin = false }: { children: ReactNode; 
           fontFamily: "DM Sans, sans-serif",
         }}
       >
-        <h1 style={{ fontFamily: "Georgia, serif", fontSize: "2rem", color: "#EFDCD7", marginBottom: "1rem" }}>
+        <h1
+          style={{
+            fontFamily: "Georgia, serif",
+            fontSize: "2rem",
+            color: "#EFDCD7",
+            marginBottom: "1rem",
+          }}
+        >
           Store Staff Access Required
         </h1>
-        <p style={{ color: "#B8B0A6", maxWidth: "450px", marginBottom: "1.75rem", lineHeight: 1.6, fontSize: "0.95rem" }}>
-          Your account (<strong>{session.user.email}</strong>) does not have active administrator privileges. If you are store staff, please ensure custom admin claims are assigned.
+        <p
+          style={{
+            color: "#B8B0A6",
+            maxWidth: "450px",
+            marginBottom: "1.75rem",
+            lineHeight: 1.6,
+            fontSize: "0.95rem",
+          }}
+        >
+          Your account (<strong>{session.user.email}</strong>) does not have
+          active administrator privileges. If you are store staff, please ensure
+          custom admin claims are assigned.
         </p>
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "1rem",
+            flexWrap: "wrap",
+            justifyContent: "center",
+          }}
+        >
           <a
             href="/"
             style={{
@@ -187,4 +264,3 @@ export function RequireAuth({ children, admin = false }: { children: ReactNode; 
 
   return <>{children}</>;
 }
-

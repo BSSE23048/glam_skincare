@@ -18,7 +18,8 @@ import {
   WhatsAppLink,
 } from "../components/ui";
 import { faqs } from "../data/catalog";
-import { business } from "../config/business";
+import { buildWhatsAppUrl, money } from "../config/business";
+import { useSettings } from "../contexts/SiteContext";
 export function Ritual() {
   return (
     <>
@@ -190,7 +191,8 @@ export function FAQ() {
   );
 }
 export function Contact() {
-  const [sent, setSent] = useState(false);
+  const business = useSettings();
+  const [draft, setDraft] = useState("");
   return (
     <section className="container page-space">
       <PageHeading eyebrow="LET’S TALK" title="A little help. A human touch.">
@@ -228,13 +230,15 @@ export function Contact() {
           className="contact-form"
           onSubmit={(e) => {
             e.preventDefault();
-            setSent(true);
+            const data = new FormData(e.currentTarget);
+            setDraft(
+              `Hi Glam Skincare! ${data.get("topic")}\nName: ${data.get("name")}\nEmail: ${data.get("email")}\n${data.get("message")}`,
+            );
           }}
         >
           <h2>Leave a little note.</h2>
           <p>
-            The message form opens at launch. For now, WhatsApp is the best way
-            to reach us.
+            Prepare your message here, then send it to our team on WhatsApp.
           </p>
           <label className="field">
             Your name
@@ -258,13 +262,21 @@ export function Contact() {
             <textarea name="message" required rows={5} maxLength={2000} />
           </label>
           <button className="button" type="submit">
-            Send Message
+            Prepare WhatsApp message
             <ArrowRight size={17} />
           </button>
-          {sent && (
-            <p role="status" className="form-success">
-              Thank you for contacting Glam Skincare! Your message has been received. We will respond promptly.
-            </p>
+          {draft && (
+            <div role="status">
+              <p>Your message is ready. It has not been sent yet.</p>
+              <a
+                className="button"
+                href={buildWhatsAppUrl(draft, business.whatsapp)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open WhatsApp to send
+              </a>
+            </div>
           )}
         </form>
       </div>
@@ -273,6 +285,7 @@ export function Contact() {
 }
 
 export function Policy() {
+  const settings = useSettings();
   const { pathname } = useLocation();
   const content =
     pathname === "/privacy"
@@ -299,9 +312,9 @@ export function Policy() {
             title: "Care, all the way to your door.",
             eyebrow: "SHIPPING & RETURNS · GLAM SKINCARE",
             paragraphs: [
-              "We deliver nationwide across Pakistan within 3 to 5 working days using trusted logistics partners (TCS, Trax, and Leopards Courier).",
-              "Standard shipping fee is PKR 200 per order. Enjoy complimentary free delivery on all orders over PKR 3,000.",
-              "We offer a 7-day exchange policy for unused, unopened products in their original packaging. If you receive a damaged or incorrect item, please reach out to us on WhatsApp (+92 322 4729343) within 48 hours for an instant replacement.",
+              `Delivery in Pakistan: ${settings.shipping.estimatedDays}.`,
+              `Standard shipping is ${money(settings.shipping.fee)}. Free delivery from ${money(settings.shipping.freeAbove)}.`,
+              settings.returnsPolicy,
             ],
           };
   return (

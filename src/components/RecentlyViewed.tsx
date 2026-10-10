@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { money } from "../config/business";
-import { products as catalogProducts } from "../data/catalog";
+import { useCatalog } from "../contexts/SiteContext";
 import type { Product } from "../types";
 
 export function recordRecentlyViewed(productId: string) {
@@ -17,6 +17,7 @@ export function recordRecentlyViewed(productId: string) {
 }
 
 export function RecentlyViewed({ currentId }: { currentId?: string }) {
+  const { products: catalogProducts } = useCatalog();
   const [items, setItems] = useState<Product[]>([]);
 
   useEffect(() => {
@@ -29,15 +30,26 @@ export function RecentlyViewed({ currentId }: { currentId?: string }) {
     } catch {
       setItems([]);
     }
-  }, [currentId]);
+  }, [currentId, catalogProducts]);
 
   if (!items.length) return null;
 
   return (
-    <section className="section container" style={{ paddingTop: "2rem", paddingBottom: "2rem" }}>
+    <section
+      className="section container"
+      style={{ paddingTop: "2rem", paddingBottom: "2rem" }}
+    >
       <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-        <p className="eyebrow" style={{ marginBottom: "0.25rem" }}>CURATED FOR YOU</p>
-        <h3 style={{ fontFamily: "Georgia, serif", fontSize: "1.5rem", color: "#302E2A" }}>
+        <p className="eyebrow" style={{ marginBottom: "0.25rem" }}>
+          CURATED FOR YOU
+        </p>
+        <h3
+          style={{
+            fontFamily: "Georgia, serif",
+            fontSize: "1.5rem",
+            color: "#302E2A",
+          }}
+        >
           Recently Viewed Essentials
         </h3>
       </div>
@@ -74,13 +86,28 @@ export function RecentlyViewed({ currentId }: { currentId?: string }) {
                 marginBottom: "0.75rem",
               }}
             />
-            <h4 style={{ fontSize: "1rem", fontFamily: "Georgia, serif", color: "#302E2A", marginBottom: "0.25rem" }}>
+            <h4
+              style={{
+                fontSize: "1rem",
+                fontFamily: "Georgia, serif",
+                color: "#302E2A",
+                marginBottom: "0.25rem",
+              }}
+            >
               {p.name}
             </h4>
-            <p style={{ fontSize: "0.85rem", color: "#685F57", marginBottom: "0.5rem" }}>
+            <p
+              style={{
+                fontSize: "0.85rem",
+                color: "#685F57",
+                marginBottom: "0.5rem",
+              }}
+            >
               {p.subtitle}
             </p>
-            <strong style={{ fontSize: "0.95rem", color: "#302E2A" }}>{money(p.price)}</strong>
+            <strong style={{ fontSize: "0.95rem", color: "#302E2A" }}>
+              {money(p.price)}
+            </strong>
           </Link>
         ))}
       </div>

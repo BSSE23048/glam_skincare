@@ -19,10 +19,12 @@ A high-performance, mobile-first beauty storefront built with React 19, TypeScri
 
 ---
 
+Current release verification and known limits: [QA report](docs/QA-REPORT.md), [test matrix](docs/QA-MATRIX.md), and [current architecture/local setup](docs/PHASE-2.md). Browser tests require running local emulators, `npm run seed:local`, and `npm run build:qa`; they use the demo project on a built preview at port 5175.
+
 ## Quick Start & Local Development
 
 ### Prerequisites
-Node.js 18+ and npm installed.
+Node.js 22 and npm installed. Local Firebase testing also requires Java 21.
 
 ### Installation
 

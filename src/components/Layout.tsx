@@ -17,14 +17,16 @@ import { Brand, Modal, Eyebrow } from "./ui";
 import { CartDrawer } from "./Cart";
 import { useStore } from "../store";
 import { useAuth } from "../contexts/AuthContext";
-import { business, whatsappUrl } from "../config/business";
-import { products } from "../data/catalog";
+import { buildWhatsAppUrl } from "../config/business";
+import { useCatalog, useSettings } from "../contexts/SiteContext";
 const nav = [
   ["/shop", "Shop"],
   ["/how-it-works", "The ritual"],
   ["/about", "Our story"],
 ];
 export function Layout({ children }: { children: React.ReactNode }) {
+  const { products } = useCatalog();
+  const settings = useSettings();
   const { admin } = useAuth();
   const [mobile, setMobile] = useState(false);
   const [search, setSearch] = useState(false);
@@ -126,7 +128,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Newsletter />
         <Footer />
         <a
-          href={whatsappUrl(helpMessage)}
+          href={buildWhatsAppUrl(helpMessage, settings.whatsapp)}
           className={`floating-whatsapp ${location.pathname.startsWith("/product/") ? "above-purchase" : ""}`}
           target="_blank"
           rel="noreferrer"
@@ -136,7 +138,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span>Here to help</span>
         </a>
       </div>
-      {showTracker && <OrderTrackerModal onClose={() => setShowTracker(false)} />}
+      {showTracker && (
+        <OrderTrackerModal onClose={() => setShowTracker(false)} />
+      )}
       {mobile && (
         <Modal
           title="Make yourself at home."
@@ -283,6 +287,7 @@ function Newsletter() {
   );
 }
 function Footer() {
+  const business = useSettings();
   return (
     <footer className="footer">
       <div className="container footer-grid">
@@ -327,7 +332,10 @@ function Footer() {
           </p>
           <a
             className="text-link"
-            href={whatsappUrl()}
+            href={buildWhatsAppUrl(
+              "Hi Glam Skincare! I have a question.",
+              business.whatsapp,
+            )}
             target="_blank"
             rel="noreferrer"
           >

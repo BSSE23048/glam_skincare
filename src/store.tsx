@@ -1,13 +1,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { CartLine, Order } from "./types";
-import {
-  readStorage,
-  sanitizeCart,
-  sanitizeOrders,
-  writeStorage,
-} from "./lib/commerce";
-import { getProduct } from "./data/catalog";
+import type { CartLine } from "./types";
+import { readStorage, sanitizeCart, writeStorage } from "./lib/commerce";
+import { useCatalog, useSettings } from "./contexts/SiteContext";
+import { totals } from "./lib/commerce";
 type Store = {
   cart: CartLine[];
   drawer: boolean;
@@ -17,24 +13,39 @@ type Store = {
   clear: () => void;
   toast: (message: string) => void;
   message: string;
-  orders: Order[];
-  saveOrder: (order: Order) => void;
-  clearOrders: () => void;
+  sums: ReturnType<typeof totals>;
 };
 const Context = createContext<Store | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState(() =>
-    sanitizeCart(readStorage("glam.cart.v1", [])),
-  );
-  const [orders, setOrders] = useState<Order[]>(() =>
-    sanitizeOrders(readStorage<unknown>("glam.previews.v1", [])),
-  );
+  const { products, getProduct, loading } = useCatalog();
+  const settings = useSettings();
+  const [rawCart, setCart] = useState<CartLine[]>(() => {
+    const saved = readStorage<unknown>("glam.cart.v1", []);
+    return Array.isArray(saved)
+      ? saved.filter(
+          (l) =>
+            l &&
+            typeof l.productId === "string" &&
+            typeof l.variantId === "string" &&
+            Number.isFinite(l.quantity) &&
+            l.quantity > 0,
+        )
+      : [];
+  });
+  const cart = loading ? [] : sanitizeCart(rawCart, products);
+  const sums = totals(cart, undefined, products, settings.shipping);
   const [drawer, setDrawer] = useState(false);
   const [message, setMessage] = useState("");
   useEffect(() => {
-    if (!writeStorage("glam.cart.v1", cart))
+    if (loading) return;
+    const next = sanitizeCart(rawCart, products);
+    if (JSON.stringify(next) !== JSON.stringify(rawCart)) {
+      setCart(next);
+      setMessage("Your bag was updated to match current availability.");
+    }
+    if (!writeStorage("glam.cart.v1", next))
       setMessage("Your browser could not save your bag. Keep this tab open.");
-  }, [cart]);
+  }, [rawCart, products, loading]);
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 4500);
@@ -47,7 +58,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     setCart((current) =>
-      sanitizeCart([...current, { productId: id, variantId, quantity }]),
+      sanitizeCart(
+        [...current, { productId: id, variantId, quantity }],
+        products,
+      ),
     );
     setMessage("A softer ritual, added to your bag.");
     if (open) setDrawer(true);
@@ -60,25 +74,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ? { ...l, quantity }
             : l,
         ),
+        products,
       ),
     );
-  const saveOrder = (order: Order) => {
-    const next = [order, ...orders].slice(0, 20);
-    setOrders(next);
-    if (!writeStorage("glam.previews.v1", next))
-      setMessage(
-        "Preview saved for this session only; browser storage is unavailable.",
-      );
-  };
-  const clearOrders = () => {
-    setOrders([]);
-    const saved = writeStorage("glam.previews.v1", []);
-    setMessage(
-      saved
-        ? "Local order previews cleared."
-        : "Could not clear saved previews. Use your browser’s site data settings.",
-    );
-  };
   return (
     <Context.Provider
       value={{
@@ -90,9 +88,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         clear: () => setCart([]),
         toast: setMessage,
         message,
-        orders,
-        saveOrder,
-        clearOrders,
+        sums,
       }}
     >
       {children}

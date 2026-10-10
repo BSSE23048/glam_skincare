@@ -14,7 +14,9 @@
     "emulators": "node scripts/emulators.mjs",
     "seed:local": "node scripts/seed.mjs",
     "test:rules": "node --test tests/rules.test.mjs",
-    "test:backend": "playwright test tests/backend.spec.ts"
+    "test:backend": "npm run test:release",
+    "test:release": "playwright test --config playwright.release.config.ts",
+    "build:qa": "tsc -b && vite build --mode qa --outDir .audit/qa-dist"
   },
   "dependencies": {
     "firebase": "^12.0.0",

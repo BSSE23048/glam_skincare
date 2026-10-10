@@ -1,29 +1,24 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate, useParams, Navigate } from "react-router-dom";
+import { Link, useNavigate, Navigate } from "react-router-dom";
 import {
   ArrowRight,
-  Check,
   ChevronLeft,
   CreditCard,
-  ShieldCheck,
   Truck,
-  PackageCheck,
-  Copy,
-  MessageCircle,
   AlertCircle,
   Building2,
-  Wallet,
+  ShieldCheck,
 } from "lucide-react";
 import { useStore } from "../store";
 import { useAuth } from "../contexts/AuthContext";
-import { business, money, whatsappMessages, buildWhatsAppUrl } from "../config/business";
-import { totals } from "../lib/commerce";
+import { money } from "../config/business";
+
 import { useCatalog, useSettings } from "../contexts/SiteContext";
 import { Empty, Eyebrow, WhatsAppLink } from "../components/ui";
 import { OrderSummary } from "../components/Cart";
-import type { Customer, Order } from "../types";
-import { firebase } from "../services/firebase";
+import type { Customer } from "../types";
+
 import { createOrder, newOrderId } from "../services/orders";
 
 const provinces = [
@@ -74,23 +69,24 @@ function Field({
 }
 
 export default function Checkout() {
-  const { user, admin, loading: authLoading } = useAuth();
-  const { cart, clear, saveOrder } = useStore();
+  const { user, profile, admin, loading: authLoading } = useAuth();
+  const { cart, clear, sums } = useStore();
   const { getProduct } = useCatalog();
   const navigate = useNavigate();
 
-  if (!authLoading && user && admin) {
-    return <Navigate to="/admin" replace />;
-  }
-  const [paymentMethod, setPaymentMethod] = useState<"cod" | "manual_online_payment">("cod");
-  const [selectedOnlineOption, setSelectedOnlineOption] = useState<string>("bank_transfer");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "cod" | "manual_online_payment"
+  >("cod");
   const [different, setDifferent] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const busy = useRef(false);
+  const orderId = useRef(newOrderId());
+  const business = useSettings();
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (submitting) return;
+    if (busy.current || !user) return;
     setError("");
 
     const form = new FormData(e.currentTarget);
@@ -98,7 +94,9 @@ export default function Checkout() {
       name: String(form.get("name") || "").trim(),
       email: String(form.get("email") || "").trim(),
       phone: String(form.get("phone") || "").trim(),
-      whatsapp: different ? String(form.get("whatsapp") || "").trim() : String(form.get("phone") || "").trim(),
+      whatsapp: different
+        ? String(form.get("whatsapp") || "").trim()
+        : String(form.get("phone") || "").trim(),
       address: String(form.get("address") || "").trim(),
       apartment: String(form.get("apartment") || "").trim(),
       area: String(form.get("area") || "").trim(),
@@ -110,7 +108,9 @@ export default function Checkout() {
 
     const cleanPhone = customer.phone.replace(/[\s()-]/g, "");
     if (!/^(?:\+92|0092|0)?3\d{9}$/.test(cleanPhone)) {
-      setError("Please enter a valid Pakistani mobile number, for example 0300 1234567.");
+      setError(
+        "Please enter a valid Pakistani mobile number, for example 0300 1234567.",
+      );
       return;
     }
 
@@ -122,23 +122,32 @@ export default function Checkout() {
       }
     }
 
-    if (!customer.name || !customer.address || !customer.area || !customer.city || !customer.province) {
+    if (
+      !customer.name ||
+      !customer.address ||
+      !customer.area ||
+      !customer.city ||
+      !customer.province
+    ) {
       setError("Please complete all required delivery details.");
       return;
     }
 
+    customer.phone = cleanPhone;
+    customer.whatsapp = customer.whatsapp.replace(/[\s()-]/g, "");
+    busy.current = true;
     setSubmitting(true);
-    const generatedId = newOrderId();
-    const orderTotals = totals(cart);
+    const generatedId = orderId.current;
 
     try {
-      if (firebase?.auth.currentUser) {
+      {
         // Prepare SKUs mapping for Firestore order creation
         const skus: Record<string, string> = {};
         cart.forEach((line) => {
           const prod = getProduct(line.productId);
           const variant = prod?.variants.find((v) => v.id === line.variantId);
-          skus[`${line.productId}:${line.variantId}`] = variant?.sku || line.variantId;
+          skus[`${line.productId}:${line.variantId}`] =
+            variant?.sku || line.variantId;
         });
 
         await createOrder({
@@ -150,31 +159,28 @@ export default function Checkout() {
         });
       }
 
-      // Save local store representation as well (for instant fallback display)
-      const order: Order = {
-        id: generatedId,
-        createdAt: new Date().toISOString(),
-        items: cart.map((l) => ({ ...l })),
-        subtotal: orderTotals.subtotal,
-        shipping: orderTotals.shipping,
-        discount: orderTotals.discount,
-        total: orderTotals.total,
-        payment: paymentMethod,
-        status: paymentMethod === "manual_online_payment" ? "payment_verification" : "pending",
-        customer,
-      };
-
-      saveOrder(order);
       clear();
-      navigate(`/order-success/${order.id}`, { replace: true });
+      navigate(`/order-success/${generatedId}`, { replace: true });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "We couldn’t process your order. Please try again.";
+      const message =
+        err instanceof Error
+          ? err.message
+          : "We couldn’t process your order. Please try again.";
       setError(message);
     } finally {
+      busy.current = false;
       setSubmitting(false);
     }
   }
 
+  if (authLoading)
+    return (
+      <div className="empty" role="status">
+        Restoring your session?
+      </div>
+    );
+  if (admin) return <Navigate to="/admin" replace />;
+  if (!user) return <Navigate to="/login?next=%2Fcheckout" replace />;
   if (!cart.length) {
     return (
       <Empty
@@ -206,8 +212,19 @@ export default function Checkout() {
             </h2>
             <p>So we know who we’re caring for.</p>
             <div className="form-grid">
-              <Field label="Full name" name="name" autoComplete="name" />
-              <Field label="Email address" name="email" type="email" autoComplete="email" />
+              <Field
+                label="Full name"
+                name="name"
+                autoComplete="name"
+                defaultValue={profile?.displayName || user.displayName || ""}
+              />
+              <Field
+                label="Email address"
+                name="email"
+                type="email"
+                autoComplete="email"
+                defaultValue={user.email || ""}
+              />
               <Field
                 label="Mobile number"
                 name="phone"
@@ -242,7 +259,11 @@ export default function Checkout() {
               <span>02</span>Somewhere to send a little care
             </h2>
             <p>Your delivery address in Pakistan.</p>
-            <Field label="Street address" name="address" autoComplete="address-line1" />
+            <Field
+              label="Street address"
+              name="address"
+              autoComplete="address-line1"
+            />
             <div className="form-grid">
               <Field
                 label="House / apartment"
@@ -292,7 +313,9 @@ export default function Checkout() {
               <span>03</span>Your preferred way to pay
             </h2>
 
-            <label className={`payment-option ${paymentMethod === "cod" ? "active" : ""}`}>
+            <label
+              className={`payment-option ${paymentMethod === "cod" ? "active" : ""}`}
+            >
               <input
                 type="radio"
                 name="payment"
@@ -307,56 +330,42 @@ export default function Checkout() {
               </span>
             </label>
 
-            <label className={`payment-option ${paymentMethod === "manual_online_payment" ? "active" : ""}`}>
+            <label
+              className={`payment-option ${paymentMethod === "manual_online_payment" ? "active" : ""}`}
+            >
               <input
                 type="radio"
                 name="payment"
                 value="manual_online_payment"
+                disabled={!business.bank.enabled}
                 checked={paymentMethod === "manual_online_payment"}
                 onChange={() => setPaymentMethod("manual_online_payment")}
               />
               <CreditCard size={22} />
               <span>
-                <strong>Manual Online Payment (Bank Transfer / Easypaisa / JazzCash)</strong>
-                <small>Transfer directly to store account & confirm via WhatsApp.</small>
+                <strong>
+                  Manual Online Payment (Bank Transfer / Easypaisa / JazzCash)
+                </strong>
+                <small>
+                  Transfer directly to store account & confirm via WhatsApp.
+                </small>
               </span>
             </label>
 
             {paymentMethod === "manual_online_payment" && (
               <div className="bank-panel">
-                <h3>Select Payment Method</h3>
-                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                  {business.paymentMethods.map((pm) => (
-                    <button
-                      key={pm.id}
-                      type="button"
-                      className={`button small ${selectedOnlineOption === pm.id ? '' : 'secondary'}`}
-                      onClick={() => setSelectedOnlineOption(pm.id)}
-                    >
-                      {pm.id === 'bank_transfer' ? <Building2 size={16} /> : <Wallet size={16} />}
-                      {pm.name}
-                    </button>
-                  ))}
-                </div>
-
-                {(() => {
-                  const currentMethod = business.paymentMethods.find(m => m.id === selectedOnlineOption) || business.paymentMethods[0];
-                  return (
-                    <div style={{ background: '#FAF8F5', padding: '1rem', borderRadius: '8px', border: '1px solid #EFEAE3' }}>
-                      <p style={{ margin: 0, fontWeight: 600 }}>{currentMethod.name} Details:</p>
-                      <ul style={{ margin: '0.5rem 0', paddingLeft: '1.25rem', fontSize: '0.925rem', lineHeight: '1.6' }}>
-                        {currentMethod.bankName && <li><strong>Bank / Wallet:</strong> {currentMethod.bankName}</li>}
-                        <li><strong>Account Title:</strong> {currentMethod.accountTitle}</li>
-                        <li><strong>Account Number:</strong> {currentMethod.accountNumber}</li>
-                        {currentMethod.iban && <li><strong>IBAN:</strong> {currentMethod.iban}</li>}
-                        <li><strong>Order Amount:</strong> {money(totals(cart).total)}</li>
-                      </ul>
-                      <p className="fine-print" style={{ marginTop: '0.75rem' }}>
-                        <strong>Instructions:</strong> After completing your transfer, place your order and send your payment screenshot directly to Glam Skincare on WhatsApp with your Order Number.
-                      </p>
-                    </div>
-                  );
-                })()}
+                <h3>
+                  <Building2 size={18} /> Bank transfer details
+                </h3>
+                <p>{business.bank.name}</p>
+                <p>Account title: {business.bank.accountTitle}</p>
+                <p>Account number: {business.bank.accountNumber}</p>
+                <p>{business.bank.instructions}</p>
+                <p>Order amount: {money(sums.total)}</p>
+                <p>
+                  Place your order first, then send your payment screenshot on
+                  WhatsApp with your order number.
+                </p>
               </div>
             )}
           </section>
@@ -377,10 +386,14 @@ export default function Checkout() {
         <aside className="summary-panel checkout-summary">
           <h2>In your bag</h2>
           {cart.map((l) => {
-            const p = getProduct(l.productId)!;
-            const v = p?.variants.find((v) => v.id === l.variantId)!;
+            const p = getProduct(l.productId);
+            const v = p?.variants.find((v) => v.id === l.variantId);
+            if (!p || !v) return null;
             return (
-              <div className="checkout-line" key={`${l.productId}-${l.variantId}`}>
+              <div
+                className="checkout-line"
+                key={`${l.productId}-${l.variantId}`}
+              >
                 <img src={v?.image || p?.images[0]} alt={p?.name} />
                 <div>
                   <strong>{p?.name || l.productId}</strong>
@@ -388,7 +401,7 @@ export default function Checkout() {
                     {v?.name || l.variantId} · Qty {l.quantity}
                   </span>
                 </div>
-                <span>{money((p?.price || 0) * l.quantity)}</span>
+                <span>{money((v.priceOverride ?? p.price) * l.quantity)}</span>
               </div>
             );
           })}
@@ -404,152 +417,6 @@ export default function Checkout() {
           </div>
         </aside>
       </form>
-    </section>
-  );
-}
-
-export function OrderDetail() {
-  const { id } = useParams();
-  const { orders } = useStore();
-  const { getProduct } = useCatalog();
-  const settings = useSettings();
-  const [copied, setCopied] = useState(false);
-  const order = orders.find((o) => o.id === id);
-
-  if (!order) {
-    return (
-      <Empty
-        title="We can’t find this order."
-        text="Orders are saved in your account and available in your order history."
-        to="/account/orders"
-        action="View my orders"
-      />
-    );
-  }
-
-  const isManual = order.payment === "manual_online_payment";
-  const customerName = order.customer?.name || "Valued Customer";
-  const whatsappVerificationText = whatsappMessages.paymentVerification(
-    order.id,
-    money(order.total),
-    customerName
-  );
-  const whatsappUrl = buildWhatsAppUrl(whatsappVerificationText, settings.whatsapp || business.whatsapp);
-
-  const copyOrderNumber = () => {
-    navigator.clipboard.writeText(order.id);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
-  };
-
-  return (
-    <section className="container page-space order-detail">
-      <div className="success-icon">
-        <Check size={35} />
-      </div>
-      <Eyebrow>ORDER PLACED SUCCESSFULLY</Eyebrow>
-      <h1>
-        Looking forward to
-        <br />
-        <em>your softer everyday.</em>
-      </h1>
-      <p>
-        Thank you for choosing Glam Skincare! Once your payment is verified, your order will be confirmed and processed for delivery.
-      </p>
-
-      <div className="order-card">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">ORDER NUMBER</span>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              {order.id}
-              <button
-                type="button"
-                className="icon-button"
-                onClick={copyOrderNumber}
-                title="Copy order number"
-                style={{ padding: '0.25rem' }}
-              >
-                {copied ? <Check size={18} color="#2e7d32" /> : <Copy size={18} />}
-              </button>
-            </h2>
-          </div>
-          <PackageCheck size={30} />
-        </div>
-
-        <p>
-          Placed on: {" "}
-          {new Date(order.createdAt).toLocaleDateString("en-PK", {
-            dateStyle: "long",
-          })}
-        </p>
-
-        <div style={{ margin: '1rem 0' }}>
-          <span className={`quiet-badge ${isManual ? 'warning' : 'success'}`}>
-            Payment Status: {isManual ? "Awaiting Payment Verification" : "Cash on Delivery (Pending)"}
-          </span>
-        </div>
-
-        {isManual && (
-          <div className="payment-verification-box" style={{ background: '#FFFDF9', border: '1.5px dashed #E0C097', padding: '1.25rem', borderRadius: '10px', margin: '1.25rem 0' }}>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: '#8A5A2B' }}>
-              Send Screenshot on WhatsApp
-            </h3>
-            <p style={{ fontSize: '0.95rem', lineHeight: '1.6', margin: '0 0 1rem 0', color: '#4A4A4A' }}>
-              Please complete your payment using your selected payment method (Bank Transfer / Easypaisa / JazzCash) and send your payment screenshot to <strong>Glam Skincare</strong> on WhatsApp for verification.
-              <br />
-              <em>Please include your Order Number <strong>#{order.id}</strong> in the message.</em>
-            </p>
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="button full"
-              style={{ background: '#25D366', color: '#ffffff', borderColor: '#25D366', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-            >
-              <MessageCircle size={20} />
-              SEND PAYMENT SCREENSHOT ON WHATSAPP
-            </a>
-          </div>
-        )}
-
-        <div className="order-items-summary" style={{ marginTop: '1rem' }}>
-          <h4>Order Items</h4>
-          {order.items.map((l) => {
-            const p = getProduct(l.productId);
-            const v = p?.variants.find((v) => v.id === l.variantId);
-            return (
-              <div className="summary-row" key={`${l.productId}-${l.variantId}`}>
-                <span>
-                  {p?.name || l.productId} · {v?.name || l.variantId}
-                </span>
-                <span>Qty {l.quantity}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="summary-row" style={{ marginTop: '0.75rem' }}>
-          <span>Estimated delivery</span>
-          <span>{business.shipping.estimatedDays}</span>
-        </div>
-
-        <div className="summary-row summary-total" style={{ borderTop: '1px solid #EFEAE3', paddingTop: '0.75rem', marginTop: '0.75rem' }}>
-          <span>Order Total</span>
-          <strong>{money(order.total)}</strong>
-        </div>
-
-        {order.customer && (
-          <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#666' }}>
-            <strong>Shipping Address:</strong> {order.customer.name}, {order.customer.address}, {order.customer.area}, {order.customer.city}, {order.customer.province} ({order.customer.phone})
-          </div>
-        )}
-      </div>
-
-      <Link to="/shop" className="button">
-        Back to the essentials
-        <ArrowRight size={17} />
-      </Link>
     </section>
   );
 }

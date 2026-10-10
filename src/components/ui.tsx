@@ -14,10 +14,11 @@ import {
   Sparkles,
 } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
-import { whatsappUrl, money } from "../config/business";
+import { buildWhatsAppUrl, money } from "../config/business";
 import { steps } from "../data/catalog";
 import type { Product } from "../types";
 import { useStore } from "../store";
+import { useSettings } from "../contexts/SiteContext";
 
 export function Reveal({
   children,
@@ -61,10 +62,14 @@ export function WhatsAppLink({
   message?: string;
   className?: string;
 }) {
+  const settings = useSettings();
   return (
     <a
       className={className}
-      href={whatsappUrl(message)}
+      href={buildWhatsAppUrl(
+        message || "Hi Glam Skincare! I have a question.",
+        settings.whatsapp,
+      )}
       target="_blank"
       rel="noreferrer"
     >
