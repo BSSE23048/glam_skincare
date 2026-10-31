@@ -4,9 +4,19 @@
 **Tagline:** Glow. Care. Confidence.  
 **Primary Product:** Bye-Bye Makeup reusable microfiber makeup-removal pad.
 
-A high-performance, mobile-first beauty storefront built with React 19, TypeScript, Vite, Framer Motion, and Firebase (Authentication & Cloud Firestore). Designed to operate within Firebase's free Spark plan using a direct WhatsApp payment verification workflow.
+A responsive beauty storefront built with React 19, TypeScript, Vite, Framer Motion, and Firebase (Authentication & Cloud Firestore). Designed to operate within Firebase's free Spark plan using a direct WhatsApp payment verification workflow.
 
 ---
+
+## Problem and demonstration
+
+A small skincare business needs a storefront and a shared customer/admin order workflow, including cash on delivery and manually verified online payments.
+
+- [Source](https://github.com/BSSE23048/glam_skincare)
+- [Demo walkthrough and screenshot checklist](docs/DEMO.md)
+- [Verification history and limitations](docs/QA-REPORT.md)
+
+Repository maintainer: [Agha Shoaib Zaib](https://github.com/BSSE23048). This README describes the code in this repository; it does not establish sole authorship of every asset or dependency. A live deployment has not been verified in this portfolio review.
 
 ## Technical Stack
 
@@ -29,8 +39,8 @@ Node.js 22 and npm installed. Local Firebase testing also requires Java 21.
 ### Installation
 
 ```bash
-# Install dependencies
-npm install
+# Install the locked dependencies
+npm ci
 
 # Start development server
 npm run dev
@@ -51,7 +61,7 @@ The application will run locally at `http://127.0.0.1:5173`.
 
 ## Free-First Architecture & Design Principles
 
-Glam Skincare is engineered to run at **zero recurring infrastructure cost** during launch:
+The architecture avoids requiring paid storage or functions for manual payment verification. Actual cost depends on provider quotas and usage:
 
 1. **Firebase Authentication:** Handles customer registration, sign-in, and administrator session tokens.
 2. **Cloud Firestore:** Real-time database for users, products, categories, orders, reviews, and site settings.
