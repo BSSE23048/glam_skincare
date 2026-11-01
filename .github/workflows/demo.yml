@@ -1,0 +1,39 @@
+name: Emulator demo
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: demo-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build:qa
+      - name: Check local rules and customer workflows
+        run: npx firebase emulators:exec --only auth,firestore --project demo-glam-skincare "npm run seed:local && npm run test:rules && npm run test:release && node scripts/screenshots.mjs"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-demo-evidence
+          path: |
+            .audit/portfolio/*.png
+            .audit/release-results.json
+          if-no-files-found: warn
+          retention-days: 7

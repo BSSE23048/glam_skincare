@@ -9,7 +9,6 @@ export default defineConfig({
   // Trace ZIP writes are unreliable in this OneDrive workspace; retain screenshots and JSON instead.
   use: {
     baseURL: "http://127.0.0.1:5175",
-    channel: "chrome",
     trace: "off",
     screenshot: "only-on-failure",
   },
@@ -20,3 +19,4 @@ export default defineConfig({
     reuseExistingServer: true,
   },
 });
+
