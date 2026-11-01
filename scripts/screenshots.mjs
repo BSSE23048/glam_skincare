@@ -1,4 +1,4 @@
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 await mkdir(".audit/portfolio", { recursive: true });
@@ -41,13 +41,21 @@ await page.goto("http://127.0.0.1:5176/product/bye-bye-makeup", {
 });
 await settle();
 await page.screenshot({ path: ".audit/portfolio/product-mobile.png", fullPage: true });
+await page.goto("http://127.0.0.1:5176/login");
+await page.locator("[name=email]").fill("customer@glam.test");
+await page.locator("[name=password]").fill("GlamCustomer123!");
+await page.getByRole("button", { name: "Sign In to Your Account", exact: true }).click();
+await expect(page).not.toHaveURL(/\/login$/);
+await page.goto("http://127.0.0.1:5176/product/bye-bye-makeup");
 await page.getByRole("button", { name: "Buy now", exact: true }).click();
+await expect(page.locator(".order-summary")).toBeVisible();
+await settle();
 await page.screenshot({ path: ".audit/portfolio/checkout-mobile.png", fullPage: true });
 } finally {
   await browser?.close();
   preview.kill();
 }
 console.log(
-  "Saved desktop, mobile, product and checkout screenshots to .audit.",
+  "Saved synthetic demo screenshots to .audit/portfolio.",
 );
 

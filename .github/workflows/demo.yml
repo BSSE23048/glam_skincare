@@ -27,7 +27,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run build:qa
       - name: Check local rules and customer workflows
-        run: npx firebase emulators:exec --only auth,firestore --project demo-glam-skincare "npm run seed:local && npm run test:rules && npm run test:release && node scripts/screenshots.mjs"
+        run: npx firebase emulators:exec --only auth,firestore --project demo-glam-skincare "npm run seed:local && npm run test:rules && npm run test:release && npm run seed:local && node scripts/screenshots.mjs"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
