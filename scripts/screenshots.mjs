@@ -31,14 +31,16 @@ async function settle() {
   });
   await page.waitForTimeout(700);
 }
-await page.goto("http://127.0.0.1:5176", { waitUntil: "networkidle" });
+await page.goto("http://127.0.0.1:5176", { waitUntil: "domcontentloaded" });
+await expect(page.locator(".product-card").first()).toBeVisible();
 await settle();
 await page.screenshot({ path: ".audit/portfolio/home-desktop.png", fullPage: true });
 await page.setViewportSize({ width: 390, height: 844 });
 await page.screenshot({ path: ".audit/portfolio/home-mobile.png", fullPage: true });
 await page.goto("http://127.0.0.1:5176/product/bye-bye-makeup", {
-  waitUntil: "networkidle",
+  waitUntil: "domcontentloaded",
 });
+await expect(page.getByRole("button", { name: "Add to bag", exact: true }).first()).toBeEnabled();
 await settle();
 await page.screenshot({ path: ".audit/portfolio/product-mobile.png", fullPage: true });
 await page.goto("http://127.0.0.1:5176/login");
