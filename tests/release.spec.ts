@@ -85,6 +85,7 @@ test("admin login, every tab direct entry and refresh, account redirect, logout"
     .getByRole("button", { name: /Sign Out/i })
     .first()
     .click();
+  await expect(page).toHaveURL(/\/login/);
   await page.goto("/admin/orders");
   await expect(page).toHaveURL(/\/login/);
   expect(errors).toEqual([]);
@@ -514,6 +515,7 @@ test("registration validation, session persistence, wrong password and password 
     .getByRole("button", { name: /sign out/i })
     .first()
     .click();
+  await expect(page).toHaveURL(/\/login/);
   await page.goto("/login");
   await page.locator("[name=email]").fill(email);
   await page.locator("[name=password]").fill("WrongPassword123!");
@@ -659,10 +661,14 @@ test("public filters, FAQ, contact draft and guest tracking give honest results"
   await page
     .getByRole("combobox", { name: "Sort products" })
     .selectOption("price-desc");
+  await expect(page).toHaveURL(/sort=price-desc/);
   await page
     .getByRole("combobox", { name: "Colour", exact: true })
     .selectOption("ivory");
-  await page.getByRole("checkbox", { name: "In stock only" }).check();
+  await expect(page).toHaveURL(/colour=ivory/);
+  const stockFilter = page.getByRole("checkbox", { name: "In stock only" });
+  await stockFilter.click();
+  await expect(stockFilter).toBeChecked();
   await expect(page).toHaveURL(/stock=true/);
   await page.goto("/faq");
   const disclosure = page.locator(".accordion details").first();
@@ -694,3 +700,4 @@ test("public filters, FAQ, contact draft and guest tracking give honest results"
     page.getByText(/Please sign in to the account that placed this order/),
   ).toBeVisible();
 });
+

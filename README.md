@@ -18,6 +18,20 @@ A small skincare business needs a storefront and a shared customer/admin order w
 
 Repository maintainer: [Agha Shoaib Zaib](https://github.com/BSSE23048). This README describes the code in this repository; it does not establish sole authorship of every asset or dependency. A live deployment has not been verified in this portfolio review.
 
+## Working demo evidence
+
+The [Emulator demo workflow](https://github.com/BSSE23048/glam_skincare/actions/workflows/demo.yml) runs eight Firestore rules tests, thirteen browser workflow tests and screenshot capture. The [verified run](https://github.com/BSSE23048/glam_skincare/actions/runs/41313064471) passed against commit `aa8886d`. [Quality checks](https://github.com/BSSE23048/glam_skincare/actions/workflows/quality.yml) cover lint, six unit tests and the production build.
+
+<details>
+<summary>View the mobile product and checkout screens</summary>
+
+Screenshots from the local emulator demo with synthetic catalog/customer data. These show the implemented interface, not a verified live deployment or real payment.
+
+<img src="docs/screenshots/product-mobile.png" alt="Mobile product page showing image gallery, colour variants and purchase controls" width="260" />
+<img src="docs/screenshots/checkout-mobile.png" alt="Local demo checkout showing an order summary, synthetic customer and delivery/payment form" width="260" />
+
+</details>
+
 ## Technical Stack
 
 - **Frontend:** React 19, React Router v7, TypeScript, Framer Motion, Lucide React
