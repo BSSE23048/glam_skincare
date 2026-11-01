@@ -20,7 +20,7 @@ Record the actual result of each step. Do not label this walkthrough as passed u
 - Customer order confirmation/history.
 - Admin order management using only seeded records.
 
-Use descriptive image captions and remove tokens, real names, addresses, phones and payment information. No screenshots are currently supplied by this document.
+Use descriptive image captions and remove tokens, real names, addresses, phones and payment information. Reviewed mobile product and checkout captures are committed in `docs/screenshots/` and displayed in the README. They use synthetic local data.
 
 ## Evidence and limitations
 
@@ -42,3 +42,4 @@ npx firebase emulators:exec --only auth,firestore --project demo-glam-skincare "
 The QA build reads `.env.qa` and connects to localhost Auth and Firestore emulators. The seed accounts are synthetic emulator accounts, not production credentials. The screenshot script starts its own QA preview on port 5176. Do not point it at a deployed storefront.
 
 Each workflow run retains `.audit/portfolio` screenshots and the browser JSON summary as `synthetic-demo-evidence` for seven days. Download these from the Actions run; inspect the screenshots before including them in a public case study. A failed test stops the sequence, so failed runs may have no portfolio screenshots. No emulator database export or signed-in browser state is uploaded.
+
